@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Menke & Vacca Wedding{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8 text-center">
+                <h1 class="hero-title">Menke & Vacca</h1>
+                <p class="hero-subtitle">Together forever, never apart. Maybe in distance, but never in heart.</p>
+                <div class="mt-4">
+                    <a href="{{ url_for('rsvp') }}" class="btn btn-light btn-lg me-3">RSVP Now</a>
+                    <a href="{{ url_for('registry') }}" class="btn btn-outline-light btn-lg">View Registry</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Wedding Details Section -->
+<section class="section-padding" style="background: var(--light-bg);">
+    <div class="container">
+        <h2 class="section-title">Our Special Day</h2>
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <div class="card h-100 text-center">
+                    <div class="card-body">
+                        <i class="fas fa-calendar-alt fa-3x text-primary mb-3"></i>
+                        <h4 class="serif-font">When</h4>
+                        <p class="text-muted">Date to be announced</p>
+                        <p>Save the date details coming soon!</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card h-100 text-center">
+                    <div class="card-body">
+                        <i class="fas fa-map-marker-alt fa-3x text-primary mb-3"></i>
+                        <h4 class="serif-font">Where</h4>
+                        <p class="text-muted">Venue to be announced</p>
+                        <p>Location details coming soon!</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card h-100 text-center">
+                    <div class="card-body">
+                        <i class="fas fa-heart fa-3x text-primary mb-3"></i>
+                        <h4 class="serif-font">Celebration</h4>
+                        <p class="text-muted">Love & Joy</p>
+                        <p>Join us for a day filled with love, laughter, and memories!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Our Story Section -->
+<section class="section-padding">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h2 class="section-title text-start">Our Love Story</h2>
+                <p class="lead">Every love story is beautiful, but ours is our favorite.</p>
+                <p>From the moment we met, we knew something special was beginning. Through all of life's adventures, challenges, and joys, we've grown together and discovered that we truly are better together.</p>
+                <p>Now we're ready to take the next step in our journey, and we want to celebrate with all the people who mean the most to us.</p>
+            </div>
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-body text-center p-5">
+                        <i class="fas fa-infinity fa-4x text-primary mb-4"></i>
+                        <h3 class="serif-font">Forever & Always</h3>
+                        <p class="text-muted">Two hearts, one love, endless possibilities</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Call to Action Section -->
+<section class="section-padding" style="background: linear-gradient(135deg, var(--secondary-color) 0%, var(--accent-color) 100%);">
+    <div class="container text-center">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <h2 class="section-title">Join Our Celebration</h2>
+                <p class="lead">We can't wait to celebrate with you! Please let us know if you'll be joining us for our special day.</p>
+                <div class="mt-4">
+                    <a href="{{ url_for('rsvp') }}" class="btn btn-primary btn-lg me-3">
+                        <i class="fas fa-reply me-2"></i>RSVP Now
+                    </a>
+                    <a href="{{ url_for('registry') }}" class="btn btn-outline-primary btn-lg">
+                        <i class="fas fa-gift me-2"></i>View Registry
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+
+{% block title %}Registry - Menke & Vacca Wedding{% endblock %}
+
+{% block extra_css %}
+<style>
+    .registry-item {
+        transition: all 0.3s ease;
+        border-radius: 15px;
+        overflow: hidden;
+    }
+    
+    .registry-item:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+    }
+    
+    .registry-item.bought {
+        opacity: 0.6;
+        filter: grayscale(50%);
+    }
+    
+    .registry-item.bought:hover {
+        transform: none;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+    
+    .item-image {
+        height: 250px;
+        object-fit: cover;
+        width: 100%;
+    }
+    
+    .item-priority {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: var(--primary-color);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    
+    .item-price {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+    
+    .btn-purchase {
+        background: var(--accent-color);
+        border: none;
+        color: white;
+        font-weight: 600;
+        border-radius: 25px;
+        padding: 8px 20px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-purchase:hover {
+        background: #C19660;
+        color: white;
+        transform: translateY(-1px);
+    }
+    
+    .btn-purchase:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+    
+    .modal-content {
+        border-radius: 15px;
+    }
+    
+    .modal-header {
+        background: var(--primary-color);
+        color: white;
+        border-radius: 15px 15px 0 0;
+    }
+    
+    .filter-controls {
+        background: var(--light-bg);
+        padding: 20px;
+        border-radius: 15px;
+        margin-bottom: 30px;
+    }
+    
+    .sort-btn {
+        margin: 5px;
+        border-radius: 20px;
+    }
+    
+    .sort-btn.active {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Registry Hero Section -->
+<section class="hero-section" style="padding: 150px 0 100px;">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8 text-center">
+                <h1 class="hero-title">Wedding Registry</h1>
+                <p class="hero-subtitle">Help us start our new life together</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Registry Items Section -->
+<section class="section-padding">
+    <div class="container">
+        <!-- Filter and Sort Controls -->
+        <div class="filter-controls">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h5 class="mb-3 mb-md-0">Sort by:</h5>
+                </div>
+                <div class="col-md-6">
+                    <div class="text-md-end">
+                        <button class="btn btn-outline-primary sort-btn active" data-sort="priority">Priority</button>
+                        <button class="btn btn-outline-primary sort-btn" data-sort="price-low">Price: Low to High</button>
+                        <button class="btn btn-outline-primary sort-btn" data-sort="price-high">Price: High to Low</button>
+                        <button class="btn btn-outline-primary sort-btn" data-sort="name">Name</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Registry Items Grid -->
+        <div class="row g-4" id="registryGrid">
+            {% if items %}
+                {% for item in items %}
+                <div class="col-lg-4 col-md-6 registry-item-container" 
+                     data-priority="{{ item.Priority or 0 }}" 
+                     data-price="{{ item.Price or 0 }}" 
+                     data-name="{{ item['Item Title (if not entered, website will try to make one)'] or 'Product' }}">
+                    <div class="card registry-item h-100 {% if item['Bought?'] == 'Yes' %}bought{% endif %}">
+                        {% if item.Priority and item.Priority > 0 %}
+                            <div class="item-priority">
+                                Priority {{ item.Priority }}
+                            </div>
+                        {% endif %}
+                        
+                        {% if item['Image URL'] %}
+                            <img src="{{ item['Image URL'] }}" class="item-image" alt="{{ item['Item Title (if not entered, website will try to make one)'] or 'Product' }}" 
+                                 onerror="this.src='https://via.placeholder.com/300x250/E8D5B7/8B4B8C?text=No+Image'">
+                        {% else %}
+                            <div class="item-image d-flex align-items-center justify-content-center" style="background: var(--secondary-color);">
+                                <i class="fas fa-gift fa-3x text-muted"></i>
+                            </div>
+                        {% endif %}
+                        
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title serif-font">{{ item['Item Title (if not entered, website will try to make one)'] or 'Product' }}</h5>
+                            
+                            {% if item.Price %}
+                                <p class="item-price mb-2">${{ "%.2f"|format(item.Price) }}</p>
+                            {% endif %}
+                            
+                            {% if item['Bought?'] == 'Yes' %}
+                                <div class="mt-auto">
+                                    <button class="btn btn-secondary w-100" disabled>
+                                        <i class="fas fa-check me-2"></i>Already Purchased
+                                    </button>
+                                </div>
+                            {% else %}
+                                <div class="mt-auto">
+                                    <div class="d-grid gap-2">
+                                        {% if item.URL %}
+                                            <a href="{{ item.URL }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                                <i class="fas fa-external-link-alt me-2"></i>View Item
+                                            </a>
+                                        {% endif %}
+                                        <button class="btn btn-purchase purchase-btn" 
+                                                data-title="{{ item['Item Title (if not entered, website will try to make one)'] or 'Product' }}"
+                                                data-url="{{ item.URL or '' }}"
+                                                data-price="{{ item.Price or 0 }}">
+                                            <i class="fas fa-shopping-cart me-2"></i>I Bought This
+                                        </button>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="col-12">
+                    <div class="text-center py-5">
+                        <i class="fas fa-gift fa-4x text-muted mb-3"></i>
+                        <h4 class="text-muted">Registry items will appear here</h4>
+                        <p class="text-muted">We're currently updating our registry. Please check back soon!</p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<!-- Purchase Modal -->
+<div class="modal fade" id="purchaseModal" tabindex="-1" aria-labelledby="purchaseModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="purchaseModalLabel">
+                    <i class="fas fa-heart me-2"></i>Thank you for your gift!
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="purchaseForm">
+                    <div class="mb-3">
+                        <h6 class="serif-font" id="itemTitle"></h6>
+                        <p class="text-muted small" id="itemPrice"></p>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="buyerName" class="form-label">Your Name *</label>
+                        <input type="text" class="form-control" id="buyerName" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="purchaseDate" class="form-label">Purchase Date *</label>
+                        <input type="date" class="form-control" id="purchaseDate" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="deliveryDate" class="form-label">Estimated Delivery Date (Optional)</label>
+                        <input type="date" class="form-control" id="deliveryDate">
+                    </div>
+                    
+                    <input type="hidden" id="itemUrl">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitPurchase()">
+                    <i class="fas fa-paper-plane me-2"></i>Submit
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Set today's date as default for purchase date
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('purchaseDate').value = today;
+    
+    // Add event listeners for purchase buttons
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.purchase-btn')) {
+            const btn = e.target.closest('.purchase-btn');
+            const title = btn.dataset.title;
+            const url = btn.dataset.url;
+            const price = btn.dataset.price;
+            openPurchaseModal(title, url, price);
+        }
+    });
+});
+
+// Sort functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const sortButtons = document.querySelectorAll('.sort-btn');
+    const registryGrid = document.getElementById('registryGrid');
+    
+    sortButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Update active button
+            sortButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Get sort type
+            const sortType = this.dataset.sort;
+            const items = Array.from(registryGrid.children);
+            
+            // Sort items
+            items.sort((a, b) => {
+                switch (sortType) {
+                    case 'priority':
+                        return parseInt(b.dataset.priority) - parseInt(a.dataset.priority);
+                    case 'price-low':
+                        return parseFloat(a.dataset.price) - parseFloat(b.dataset.price);
+                    case 'price-high':
+                        return parseFloat(b.dataset.price) - parseFloat(a.dataset.price);
+                    case 'name':
+                        return a.dataset.name.localeCompare(b.dataset.name);
+                    default:
+                        return 0;
+                }
+            });
+            
+            // Reorder DOM elements
+            items.forEach(item => registryGrid.appendChild(item));
+        });
+    });
+});
+
+// Open purchase modal
+function openPurchaseModal(title, url, price) {
+    document.getElementById('itemTitle').textContent = title;
+    document.getElementById('itemPrice').textContent = price > 0 ? `$${parseFloat(price).toFixed(2)}` : '';
+    document.getElementById('itemUrl').value = url;
+    
+    const modal = new bootstrap.Modal(document.getElementById('purchaseModal'));
+    modal.show();
+}
+
+// Submit purchase form
+async function submitPurchase() {
+    const form = document.getElementById('purchaseForm');
+    
+    if (!form.checkValidity()) {
+        form.classList.add('was-validated');
+        return;
+    }
+    
+    const data = {
+        name: document.getElementById('buyerName').value,
+        purchase_date: document.getElementById('purchaseDate').value,
+        delivery_date: document.getElementById('deliveryDate').value,
+        item_title: document.getElementById('itemTitle').textContent,
+        item_url: document.getElementById('itemUrl').value
+    };
+    
+    try {
+        const response = await fetch('/purchase_item', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('purchaseModal'));
+            modal.hide();
+            
+            // Show success toast
+            showToast(result.message || 'Thank you for your purchase!', 'success');
+            
+            // Reload page to show updated status
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            showToast(result.error || 'An error occurred. Please try again.', 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showToast('An error occurred. Please try again.', 'error');
+    }
+}
+
+// Reset form when modal is closed
+document.getElementById('purchaseModal').addEventListener('hidden.bs.modal', function() {
+    document.getElementById('purchaseForm').reset();
+    document.getElementById('purchaseForm').classList.remove('was-validated');
+    
+    // Reset purchase date to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('purchaseDate').value = today;
+});
+</script>
+{% endblock %}

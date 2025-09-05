@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}RSVP - Menke & Vacca Wedding{% endblock %}
+
+{% block content %}
+<!-- RSVP Hero Section -->
+<section class="hero-section" style="padding: 150px 0 100px;">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8 text-center">
+                <h1 class="hero-title">RSVP</h1>
+                <p class="hero-subtitle">We're excited to celebrate with you!</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- RSVP Form Section -->
+<section class="section-padding">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-body p-5">
+                        <h3 class="serif-font text-center mb-4">Please Respond by [Date TBD]</h3>
+                        
+                        <!-- RSVP form will be configured later -->
+                        <div class="text-center py-5">
+                            <i class="fas fa-cog fa-3x text-muted mb-3"></i>
+                            <h4 class="text-muted">RSVP Form Coming Soon</h4>
+                            <p class="text-muted">We're currently setting up our RSVP system. Please check back soon!</p>
+                            <p class="mt-4">
+                                <strong>In the meantime, you can reach out to us directly:</strong><br>
+                                <i class="fas fa-envelope me-2"></i>
+                                <a href="mailto:bp32795@gmail.com">bp32795@gmail.com</a>
+                            </p>
+                        </div>
+                        
+                        <!-- Placeholder form structure for future implementation -->
+                        <div class="d-none">
+                            <form id="rsvpForm" method="POST">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="firstName" class="form-label">First Name *</label>
+                                        <input type="text" class="form-control" id="firstName" name="firstName" required>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label for="lastName" class="form-label">Last Name *</label>
+                                        <input type="text" class="form-control" id="lastName" name="lastName" required>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="email" class="form-label">Email Address *</label>
+                                    <input type="email" class="form-control" id="email" name="email" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="phone" class="form-label">Phone Number</label>
+                                    <input type="tel" class="form-control" id="phone" name="phone">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Will you be attending? *</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="attending" id="attendingYes" value="yes" required>
+                                        <label class="form-check-label" for="attendingYes">
+                                            Yes, I'll be there!
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="attending" id="attendingNo" value="no" required>
+                                        <label class="form-check-label" for="attendingNo">
+                                            Sorry, I can't make it
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3" id="guestCountSection" style="display: none;">
+                                    <label for="guestCount" class="form-label">Number of Guests (including yourself)</label>
+                                    <select class="form-select" id="guestCount" name="guestCount">
+                                        <option value="1">1</option>
+                                        <option value="2">2</option>
+                                        <option value="3">3</option>
+                                        <option value="4">4</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="dietaryRestrictions" class="form-label">Dietary Restrictions or Special Requests</label>
+                                    <textarea class="form-control" id="dietaryRestrictions" name="dietaryRestrictions" rows="3" placeholder="Please let us know of any dietary restrictions, allergies, or special accommodations needed."></textarea>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="message" class="form-label">Special Message (Optional)</label>
+                                    <textarea class="form-control" id="message" name="message" rows="3" placeholder="Share a special message with the happy couple!"></textarea>
+                                </div>
+                                
+                                <div class="text-center">
+                                    <button type="submit" class="btn btn-primary btn-lg">
+                                        <i class="fas fa-paper-plane me-2"></i>Send RSVP
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Wedding Details -->
+                <div class="row mt-5">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-calendar-alt fa-2x text-primary mb-3"></i>
+                                <h5 class="serif-font">When</h5>
+                                <p class="text-muted">Date & Time TBD</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body text-center">
+                                <i class="fas fa-map-marker-alt fa-2x text-primary mb-3"></i>
+                                <h5 class="serif-font">Where</h5>
+                                <p class="text-muted">Venue TBD</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Show/hide guest count based on attendance
+document.addEventListener('DOMContentLoaded', function() {
+    const attendingInputs = document.querySelectorAll('input[name="attending"]');
+    const guestCountSection = document.getElementById('guestCountSection');
+    
+    attendingInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            if (this.value === 'yes') {
+                guestCountSection.style.display = 'block';
+            } else {
+                guestCountSection.style.display = 'none';
+            }
+        });
+    });
+    
+    // RSVP form submission (when enabled)
+    const rsvpForm = document.getElementById('rsvpForm');
+    if (rsvpForm) {
+        rsvpForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Form validation
+            if (!this.checkValidity()) {
+                e.stopPropagation();
+                this.classList.add('was-validated');
+                return;
+            }
+            
+            // TODO: Submit form data to backend
+            showToast('Thank you for your RSVP! We\'ll be in touch soon.', 'success');
+        });
+    }
+});
+</script>
+{% endblock %}
