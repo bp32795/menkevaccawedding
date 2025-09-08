@@ -86,11 +86,12 @@ SPREADSHEET_ID = '1VKJ3ZPchlJ1CFpRgBygx0HnwO5nDZUnwHouZSsRLDlE'
 
 def get_google_sheets_client():
     """Initialize Google Sheets client with service account credentials"""
-    print(os.environ.get('FLASK_ENV'))
+    
     try:
         # Load credentials from environment variable
         creds_json = os.environ.get('GOOGLE_SHEETS_CREDS_JSON')
-        
+        print(os.environ.get('FLASK_ENV'))
+        print(os.environ.get('GOOGLE_SHEETS_CREDS_JSON'))
         # Debug logging
         app.logger.info(f"🔍 GOOGLE_SHEETS_CREDS_JSON exists: {creds_json is not None}")
         if creds_json:
