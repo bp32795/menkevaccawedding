@@ -87,14 +87,36 @@ SPREADSHEET_ID = '1VKJ3ZPchlJ1CFpRgBygx0HnwO5nDZUnwHouZSsRLDlE'
 def get_google_sheets_client():
     """Initialize Google Sheets client with service account credentials"""
     try:
-        # Load credentials from environment or file
-        creds_info = os.environ.get('GOOGLE_SERVICE_ACCOUNT_JSON')
+        # Load credentials from environment variable
+        creds_json = os.environ.get('GOOGLE_SHEETS_CREDS_JSON')
+        
+        # Debug logging
+        app.logger.info(f"🔍 GOOGLE_SHEETS_CREDS_JSON exists: {creds_json is not None}")
+        if creds_json:
+            app.logger.info(f"🔍 JSON length: {len(creds_json)} characters")
+            app.logger.info(f"🔍 JSON starts with: {creds_json[:100]}...")
+        else:
+            app.logger.error("❌ GOOGLE_SHEETS_CREDS_JSON environment variable not set")
+            # List all environment variables for debugging
+            env_vars = [key for key in os.environ.keys() if 'GOOGLE' in key.upper()]
+            app.logger.error(f"🔍 Available env vars with 'GOOGLE': {env_vars}")
+            return None
+        
+        # Parse JSON credentials
+        app.logger.info("🔍 Attempting to parse JSON...")
+        creds_info = json.loads(creds_json)
+        app.logger.info("✅ JSON parsed successfully")
         
         credentials = Credentials.from_service_account_info(creds_info, scopes=SCOPES)
         client = gspread.authorize(credentials)
+        app.logger.info("✅ Google Sheets client created successfully")
         return client
+    except json.JSONDecodeError as e:
+        app.logger.error(f"❌ JSON decode error: {e}")
+        app.logger.error(f"🔍 Problematic JSON: {creds_json}")
+        return None
     except Exception as e:
-        app.logger.error(f"Error initializing Google Sheets client: {e}")
+        app.logger.error(f"❌ Error initializing Google Sheets client: {e}")
         return None
 
 def scrape_title_from_url(url):
