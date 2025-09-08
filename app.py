@@ -90,8 +90,7 @@ def get_google_sheets_client():
     try:
         # Load credentials from environment variable
         creds_json = os.environ.get('GOOGLE_SHEETS_CREDS_JSON')
-        print(os.environ.get('FLASK_ENV'))
-        print(os.environ.get('GOOGLE_SHEETS_CREDS_JSON'))
+        
         # Debug logging
         app.logger.info(f"🔍 GOOGLE_SHEETS_CREDS_JSON exists: {creds_json is not None}")
         if creds_json:
@@ -108,6 +107,15 @@ def get_google_sheets_client():
         app.logger.info("🔍 Attempting to parse JSON...")
         creds_info = json.loads(creds_json)
         app.logger.info("✅ JSON parsed successfully")
+        
+        # Fix private key newlines - convert \\n back to actual newlines
+        if 'private_key' in creds_info:
+            original_key = creds_info['private_key']
+            fixed_key = original_key.replace('\\n', '\n')
+            creds_info['private_key'] = fixed_key
+            app.logger.info("🔧 Fixed private key newlines")
+            app.logger.info(f"🔍 Key starts with: {fixed_key[:50]}...")
+            app.logger.info(f"🔍 Key ends with: {fixed_key[-50]}...")
         
         credentials = Credentials.from_service_account_info(creds_info, scopes=SCOPES)
         client = gspread.authorize(credentials)
