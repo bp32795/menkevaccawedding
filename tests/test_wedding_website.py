@@ -167,9 +167,9 @@ class RegistryPageTestCase(WeddingWebsiteTestCase):
 class PurchaseItemTestCase(WeddingWebsiteTestCase):
     """Test cases for item purchase functionality"""
     
-    @patch('app.mail.send')
+    @patch('app.send_registry_notification_email')
     @patch('app.get_google_sheets_client')
-    def test_purchase_item_success(self, mock_get_client, mock_mail_send):
+    def test_purchase_item_success(self, mock_get_client, mock_send_email):
         """Test successful item purchase"""
         # Mock the Google Sheets client
         mock_client = Mock()
@@ -180,7 +180,7 @@ class PurchaseItemTestCase(WeddingWebsiteTestCase):
         mock_get_client.return_value = mock_client
         
         # Mock email sending
-        mock_mail_send.return_value = True
+        mock_send_email.return_value = True
         
         purchase_data = {
             'name': 'Jane Smith',
@@ -200,11 +200,11 @@ class PurchaseItemTestCase(WeddingWebsiteTestCase):
         self.assertIn('Thank you', data['message'])
         
         # Verify Google Sheets was updated
-        mock_sheet.update_cell.assert_any_call(2, 5, 'Yes')  # Bought? column (5th column)
-        mock_sheet.update_cell.assert_any_call(2, 7, 'Jane Smith')  # Bought by column (7th column)
+        mock_sheet.update_cell.assert_any_call(2, 6, 'Yes')  # Bought? column (6th column)
+        mock_sheet.update_cell.assert_any_call(2, 8, 'Jane Smith')  # Bought by column (8th column)
         
         # Verify email was sent
-        mock_mail_send.assert_called_once()
+        mock_send_email.assert_called_once()
     
     def test_purchase_item_missing_data(self):
         """Test purchase item with missing required data"""
@@ -339,9 +339,9 @@ class SecurityTestCase(WeddingWebsiteTestCase):
 class IntegrationTestCase(WeddingWebsiteTestCase):
     """Integration test cases"""
     
-    @patch('app.mail.send')
+    @patch('app.send_registry_notification_email')
     @patch('app.get_google_sheets_client')
-    def test_full_purchase_workflow(self, mock_get_client, mock_mail_send):
+    def test_full_purchase_workflow(self, mock_get_client, mock_send_email):
         """Test the complete purchase workflow"""
         # Setup mocks
         mock_client = Mock()
@@ -350,7 +350,7 @@ class IntegrationTestCase(WeddingWebsiteTestCase):
         mock_sheet.update_cell = Mock()
         mock_client.open_by_key.return_value.sheet1 = mock_sheet
         mock_get_client.return_value = mock_client
-        mock_mail_send.return_value = True
+        mock_send_email.return_value = True
         
         # 1. Load registry page
         response = self.client.get('/registry')
@@ -375,7 +375,7 @@ class IntegrationTestCase(WeddingWebsiteTestCase):
         
         # 3. Verify side effects
         mock_sheet.update_cell.assert_called()
-        mock_mail_send.assert_called_once()
+        mock_send_email.assert_called_once()
 
 
 if __name__ == '__main__':
