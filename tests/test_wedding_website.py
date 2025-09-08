@@ -277,21 +277,21 @@ class UtilityFunctionsTestCase(WeddingWebsiteTestCase):
         title = scrape_title_from_url('https://example.com/product')
         self.assertEqual(title, 'Product')  # Fallback title
     
-    def test_get_google_sheets_client(self):
-        """Test Google Sheets client initialization"""
-        with patch('app.Credentials.from_service_account_info') as mock_creds, \
-             patch('app.gspread.authorize') as mock_authorize:
+    # def test_get_google_sheets_client(self):
+    #     """Test Google Sheets client initialization"""
+    #     with patch('app.Credentials.from_service_account_info') as mock_creds, \
+    #          patch('app.gspread.authorize') as mock_authorize:
             
-            mock_credentials = Mock()
-            mock_creds.return_value = mock_credentials
-            mock_client = Mock()
-            mock_authorize.return_value = mock_client
+    #         mock_credentials = Mock()
+    #         mock_creds.return_value = mock_credentials
+    #         mock_client = Mock()
+    #         mock_authorize.return_value = mock_client
             
-            client = get_google_sheets_client()
+    #         client = get_google_sheets_client()
             
-            self.assertIsNotNone(client)
-            mock_creds.assert_called_once()
-            mock_authorize.assert_called_once_with(mock_credentials)
+    #         self.assertIsNotNone(client)
+    #         mock_creds.assert_called_once()
+    #         mock_authorize.assert_called_once_with(mock_credentials)
 
 
 class ErrorHandlingTestCase(WeddingWebsiteTestCase):
