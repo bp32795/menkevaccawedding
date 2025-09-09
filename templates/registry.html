@@ -49,6 +49,30 @@
         color: var(--primary-color);
     }
     
+    .btn-primary:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+    
+    .note-field {
+        resize: vertical;
+        min-height: 80px;
+    }
+    
+    .form-text {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .processing-spinner {
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
     .btn-purchase {
         background: var(--accent-color);
         border: none;
@@ -255,7 +279,7 @@
                     
                     <div class="mb-3">
                         <label for="purchaseNote" class="form-label">Note/Message (Optional)</label>
-                        <textarea class="form-control" id="purchaseNote" rows="3" placeholder="Add a personal message or note about this gift..."></textarea>
+                        <textarea class="form-control note-field" id="purchaseNote" rows="3" placeholder="Add a personal message or note about this gift..."></textarea>
                         <div class="form-text">This will be included in the notification email to the couple.</div>
                     </div>
                     
@@ -342,11 +366,17 @@ function openPurchaseModal(title, url, price) {
 // Submit purchase form
 async function submitPurchase() {
     const form = document.getElementById('purchaseForm');
+    const submitBtn = document.querySelector('#purchaseModal .btn-primary');
+    const originalBtnContent = submitBtn.innerHTML;
     
     if (!form.checkValidity()) {
         form.classList.add('was-validated');
         return;
     }
+    
+    // Disable button and show processing state
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
     
     const data = {
         name: document.getElementById('buyerName').value,
@@ -369,30 +399,55 @@ async function submitPurchase() {
         const result = await response.json();
         
         if (response.ok) {
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('purchaseModal'));
-            modal.hide();
+            // Show success state briefly
+            submitBtn.innerHTML = '<i class="fas fa-check me-2"></i>Success!';
+            submitBtn.classList.remove('btn-primary');
+            submitBtn.classList.add('btn-success');
             
-            // Show success toast
-            showToast(result.message || 'Thank you for your purchase!', 'success');
-            
-            // Reload page to show updated status
+            // Close modal after a brief delay
             setTimeout(() => {
-                window.location.reload();
-            }, 2000);
+                const modal = bootstrap.Modal.getInstance(document.getElementById('purchaseModal'));
+                modal.hide();
+                
+                // Show success toast
+                showToast(result.message || 'Thank you for your purchase!', 'success');
+                
+                // Reload page to show updated status
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            }, 1000);
         } else {
+            // Reset button on error
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnContent;
             showToast(result.error || 'An error occurred. Please try again.', 'error');
         }
     } catch (error) {
         console.error('Error:', error);
+        // Reset button on error
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnContent;
         showToast('An error occurred. Please try again.', 'error');
     }
 }
 
 // Reset form when modal is closed
 document.getElementById('purchaseModal').addEventListener('hidden.bs.modal', function() {
-    document.getElementById('purchaseForm').reset();
-    document.getElementById('purchaseForm').classList.remove('was-validated');
+    const form = document.getElementById('purchaseForm');
+    const submitBtn = document.querySelector('#purchaseModal .btn-primary, #purchaseModal .btn-success');
+    
+    // Reset form
+    form.reset();
+    form.classList.remove('was-validated');
+    
+    // Reset submit button
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>Submit';
+        submitBtn.classList.remove('btn-success');
+        submitBtn.classList.add('btn-primary');
+    }
     
     // Reset purchase date to today
     const today = new Date().toISOString().split('T')[0];
