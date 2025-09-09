@@ -97,6 +97,23 @@
         border-color: var(--primary-color);
         color: white;
     }
+    
+    #purchaseNote {
+        border-radius: 8px;
+        border: 2px solid #e0e0e0;
+        transition: border-color 0.3s ease;
+        resize: vertical;
+    }
+    
+    #purchaseNote:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(184, 157, 120, 0.25);
+    }
+    
+    .form-text {
+        color: #6c757d;
+        font-size: 0.875em;
+    }
 </style>
 {% endblock %}
 
@@ -236,6 +253,12 @@
                         <input type="date" class="form-control" id="deliveryDate">
                     </div>
                     
+                    <div class="mb-3">
+                        <label for="purchaseNote" class="form-label">Note/Message (Optional)</label>
+                        <textarea class="form-control" id="purchaseNote" rows="3" placeholder="Add a personal message or note about this gift..."></textarea>
+                        <div class="form-text">This will be included in the notification email to the couple.</div>
+                    </div>
+                    
                     <input type="hidden" id="itemUrl">
                 </form>
             </div>
@@ -329,6 +352,7 @@ async function submitPurchase() {
         name: document.getElementById('buyerName').value,
         purchase_date: document.getElementById('purchaseDate').value,
         delivery_date: document.getElementById('deliveryDate').value,
+        note: document.getElementById('purchaseNote').value,
         item_title: document.getElementById('itemTitle').textContent,
         item_url: document.getElementById('itemUrl').value
     };

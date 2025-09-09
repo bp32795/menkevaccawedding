@@ -217,22 +217,31 @@ def send_email_via_azure(to_email, subject, body, from_email=None):
     """
     Send email using Azure Communication Services
     """
+    app.logger.info("🔄 Attempting Azure Communication Services email...")
+    
     if not AZURE_EMAIL_AVAILABLE:
+        app.logger.warning("❌ Azure Communication Services library not available")
         return False
         
     try:
         # Get connection string from environment
         connection_string = os.environ.get('AZURE_COMMUNICATION_CONNECTION_STRING')
         if not connection_string:
-            app.logger.info("Azure Communication Services not configured")
+            app.logger.warning("❌ Azure Communication Services not configured - no connection string")
             return False
             
+        app.logger.info("🔗 Azure connection string found, initializing client...")
+        
         # Initialize the EmailClient
         email_client = EmailClient.from_connection_string(connection_string)
+        app.logger.info("✅ EmailClient initialized successfully")
         
         # Set default from email
         if not from_email:
             from_email = os.environ.get('EMAIL_FROM_ADDRESS', 'noreply@your-domain.azurecomm.net')
+        
+        app.logger.info(f"📤 From: {from_email}")
+        app.logger.info(f"📨 To: {to_email}")
         
         # Create the email message
         message = {
@@ -246,15 +255,18 @@ def send_email_via_azure(to_email, subject, body, from_email=None):
             }
         }
         
+        app.logger.info("📧 Sending email via Azure Communication Services...")
+        
         # Send the email
         poller = email_client.begin_send(message)
         result = poller.result()
         
-        app.logger.info(f"Email sent via Azure Communication Services. Operation ID: {result['id']}")
+        app.logger.info(f"✅ Email sent via Azure Communication Services. Operation ID: {result['id']}")
         return True
         
     except Exception as e:
-        app.logger.error(f"Error sending email via Azure Communication Services: {e}")
+        app.logger.error(f"❌ Error sending email via Azure Communication Services: {e}")
+        app.logger.error(f"🔍 Exception type: {type(e).__name__}")
         return False
 
 def send_registry_notification_email(data):
@@ -264,6 +276,12 @@ def send_registry_notification_email(data):
     to_email = os.environ.get('EMAIL_TO_ADDRESS', 'bp32795@gmail.com')
     subject = f"Registry Item Purchased: {data['item_title']}"
     
+    app.logger.info(f"📧 Preparing email notification:")
+    app.logger.info(f"   To: {to_email}")
+    app.logger.info(f"   Subject: {subject}")
+    app.logger.info(f"   Item: {data['item_title']}")
+    app.logger.info(f"   Buyer: {data['name']}")
+    
     body = f"""
 Someone has purchased an item from your wedding registry!
 
@@ -271,7 +289,21 @@ Details:
 - Item: {data['item_title']}
 - Purchased by: {data['name']}
 - Purchase date: {data['purchase_date']}
-- Item URL: {data['item_url']}
+- Item URL: {data['item_url']}"""
+
+    # Add delivery date if provided
+    if data.get('delivery_date'):
+        body += f"\n- Estimated delivery: {data['delivery_date']}"
+    
+    # Add note if provided
+    if data.get('note'):
+        body += f"""
+
+Personal message from {data['name']}:
+"{data['note']}"
+"""
+    
+    body += """
 
 Congratulations!
 
@@ -280,16 +312,28 @@ Menke & Vacca Wedding Registry
 https://menkevaccawedding.azurewebsites.net
 """
     
-    # Try Azure Communication Services first (preferred for Azure deployment)
-    if os.environ.get('AZURE_COMMUNICATION_CONNECTION_STRING'):
+    # Check Azure Communication Services first
+    azure_connection = os.environ.get('AZURE_COMMUNICATION_CONNECTION_STRING')
+    app.logger.info(f"🔍 Azure Connection String configured: {azure_connection is not None}")
+    if azure_connection:
+        app.logger.info("🔄 Trying Azure Communication Services...")
         if send_email_via_azure(to_email, subject, body):
+            app.logger.info("✅ Email sent via Azure Communication Services")
             return True
         else:
-            app.logger.info("Azure Communication Services failed, trying SMTP fallback")
+            app.logger.warning("⚠️ Azure Communication Services failed, trying SMTP fallback")
+    else:
+        app.logger.info("ℹ️ Azure Communication Services not configured, trying SMTP")
     
     # Fall back to SMTP (Gmail/SendGrid)
+    mail_username = app.config.get('MAIL_USERNAME')
+    mail_suppress = app.config.get('MAIL_SUPPRESS_SEND')
+    app.logger.info(f"🔍 SMTP configured: {mail_username is not None}")
+    app.logger.info(f"🔍 SMTP suppressed: {mail_suppress}")
+    
     try:
-        if app.config.get('MAIL_USERNAME') and not app.config.get('MAIL_SUPPRESS_SEND'):
+        if mail_username and not mail_suppress:
+            app.logger.info("🔄 Sending via SMTP...")
             msg = Message(
                 subject=subject,
                 recipients=[to_email],
@@ -297,32 +341,49 @@ https://menkevaccawedding.azurewebsites.net
                 body=body
             )
             mail.send(msg)
-            app.logger.info("Email sent via SMTP")
+            app.logger.info("✅ Email sent via SMTP")
             return True
         else:
-            app.logger.info("SMTP email not configured - email notification skipped")
+            app.logger.warning("⚠️ SMTP email not configured or suppressed - email notification skipped")
             return False
     except Exception as e:
-        app.logger.error(f"Error sending email via SMTP: {e}")
+        app.logger.error(f"❌ Error sending email via SMTP: {e}")
         return False
 
 @app.route('/purchase_item', methods=['POST'])
 def purchase_item():
     """Handle item purchase form submission"""
+    app.logger.info("🛒 Purchase item request received")
+    
     try:
         data = request.get_json()
+        app.logger.info(f"📦 Purchase data received: {data}")
         
         # Validate required fields
         required_fields = ['name', 'purchase_date', 'item_title', 'item_url']
         for field in required_fields:
             if not data.get(field):
+                app.logger.error(f"❌ Missing required field: {field}")
                 return jsonify({'error': f'Missing required field: {field}'}), 400
         
+        # Optional fields
+        delivery_date = data.get('delivery_date', '')
+        note = data.get('note', '')
+        
+        app.logger.info("✅ All required fields present")
+        if delivery_date:
+            app.logger.info(f"📅 Delivery date: {delivery_date}")
+        if note:
+            app.logger.info(f"💬 Note provided: {note[:50]}...")
+        
         # Update Google Sheet
+        app.logger.info("🔄 Connecting to Google Sheets...")
         client = get_google_sheets_client()
         if not client:
+            app.logger.error("❌ Unable to connect to Google Sheets")
             return jsonify({'error': 'Unable to connect to registry system'}), 500
         
+        app.logger.info("✅ Connected to Google Sheets, updating records...")
         sheet = client.open_by_key(SPREADSHEET_ID).sheet1
         records = sheet.get_all_records()
         
@@ -334,26 +395,42 @@ def purchase_item():
                 break
         
         if row_index:
+            app.logger.info(f"📝 Updating row {row_index} in Google Sheets...")
             # Update the "Bought?" and "Bought by" columns (columns 6 and 8)
             # Column order: Timestamp, URL, Priority, Image URL, Price, Bought?, Item Title, Bought by
             sheet.update_cell(row_index, 6, 'Yes')  # Column 6 is "Bought?"
             sheet.update_cell(row_index, 8, data['name'])  # Column 8 is "Bought by"
+            app.logger.info("✅ Google Sheets updated successfully")
+        else:
+            app.logger.warning(f"⚠️ Could not find row for URL: {data['item_url']}")
         
         # Send email notification using Azure or SMTP fallback
         try:
-            email_sent = send_registry_notification_email(data)
+            app.logger.info(f"🔔 Attempting to send email notification for: {data['item_title']}")
+            # Prepare complete data for email
+            email_data = {
+                'item_title': data['item_title'],
+                'name': data['name'],
+                'purchase_date': data['purchase_date'],
+                'item_url': data['item_url'],
+                'delivery_date': data.get('delivery_date', ''),
+                'note': data.get('note', '')
+            }
+            email_sent = send_registry_notification_email(email_data)
             if email_sent:
-                app.logger.info(f"Email notification sent for purchase: {data['item_title']}")
+                app.logger.info(f"✅ Email notification sent successfully for purchase: {data['item_title']}")
             else:
-                app.logger.info(f"Email not sent - purchase recorded: {data['item_title']} by {data['name']}")
+                app.logger.warning(f"⚠️ Email not sent - purchase recorded: {data['item_title']} by {data['name']}")
         except Exception as e:
-            app.logger.error(f"Error sending email: {e}")
+            app.logger.error(f"❌ Error sending email: {e}")
             # Don't fail the request if email fails
         
+        app.logger.info("🎉 Purchase process completed successfully")
         return jsonify({'success': True, 'message': 'Thank you for your purchase!'})
     
     except Exception as e:
-        app.logger.error(f"Error processing purchase: {e}")
+        app.logger.error(f"❌ Error processing purchase: {e}")
+        app.logger.error(f"🔍 Exception type: {type(e).__name__}")
         return jsonify({'error': 'An error occurred processing your purchase'}), 500
 
 @app.errorhandler(404)
