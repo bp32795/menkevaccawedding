@@ -240,7 +240,8 @@ def send_email_via_azure(to_email, subject, body, from_email=None):
         if not from_email:
             from_email = os.environ.get('EMAIL_FROM_ADDRESS')
             if not from_email:
-                # Try to use a generic Azure managed domain format
+                # Try to use a generic Azure managed domain format as fallback
+                app.logger.warning("⚠️ EMAIL_FROM_ADDRESS not set, using fallback domain")
                 from_email = 'donotreply@donotreply.azurecomm.net'
                 app.logger.info(f"🔄 Using fallback Azure managed domain: {from_email}")
             else:
@@ -277,12 +278,14 @@ def send_email_via_azure(to_email, subject, body, from_email=None):
         
         # Provide specific guidance for common errors
         if "DomainNotLinked" in error_message:
-            app.logger.error("💡 Fix: Link your domain in Azure Communication Services Email → Provision domains")
-            app.logger.error(f"💡 Or use Azure managed domain instead of custom domain")
+            app.logger.error("💡 SOLUTION: Your email domain is not linked to Azure Communication Services")
+            app.logger.error("💡 Quick fix: Use Azure managed domain in Email Communication Services → Provision domains")
+            app.logger.error("💡 Or configure custom domain with proper DNS records")
+            app.logger.error("💡 See FIX_AZURE_EMAIL.md for detailed instructions")
         elif "Unauthorized" in error_message:
             app.logger.error("💡 Fix: Check your AZURE_COMMUNICATION_CONNECTION_STRING")
         elif "InvalidSender" in error_message:
-            app.logger.error("💡 Fix: Verify your EMAIL_FROM_ADDRESS is properly configured")
+            app.logger.error("💡 Fix: Verify your EMAIL_FROM_ADDRESS matches your linked domain")
         
         return False
 
