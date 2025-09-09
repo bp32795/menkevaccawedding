@@ -280,12 +280,14 @@ Menke & Vacca Wedding Registry
 https://menkevaccawedding.azurewebsites.net
 """
     
-    # Try Azure Communication Services first
+    # Try Azure Communication Services first (preferred for Azure deployment)
     if os.environ.get('AZURE_COMMUNICATION_CONNECTION_STRING'):
         if send_email_via_azure(to_email, subject, body):
             return True
+        else:
+            app.logger.info("Azure Communication Services failed, trying SMTP fallback")
     
-    # Fall back to SMTP (existing Flask-Mail)
+    # Fall back to SMTP (Gmail/SendGrid)
     try:
         if app.config.get('MAIL_USERNAME') and not app.config.get('MAIL_SUPPRESS_SEND'):
             msg = Message(

@@ -68,13 +68,37 @@
    Value: noreply@menkevaccawedding.com
 
    Name: GOOGLE_SHEETS_CREDS_JSON
-   Value: [your Google service account JSON - paste the entire JSON]
+   Value: [your Google service account JSON - IMPORTANT: escape all \n as \\n]
 
    Name: SPREADSHEET_ID
    Value: 1VKJ3ZPchlJ1CFpRgBygx0HnwO5nDZUnwHouZSsRLDlE
    ```
 
    - Click "Save" after adding all settings
+
+## Important: Google Sheets JSON Format
+
+**Critical**: The `GOOGLE_SHEETS_CREDS_JSON` must include ALL parts of the private key:
+
+1. **Include the header/footer lines**: 
+   - `-----BEGIN PRIVATE KEY-----`
+   - `-----END PRIVATE KEY-----`
+
+2. **Include ALL newlines**: The private key has embedded newlines that are required
+
+3. **Escape newlines for Azure**: Replace `\n` with `\\n` in the JSON
+
+**Example of correct format**:
+```json
+{
+  "type": "service_account",
+  "private_key": "-----BEGIN PRIVATE KEY-----\\nMIIEvQIBADANBgkqhk...\\n-----END PRIVATE KEY-----\\n",
+  "client_email": "your-service@project.iam.gserviceaccount.com",
+  ...
+}
+```
+
+**Use the value from your `.env.new` file** - it's already properly formatted!
 
 ## Step 3: Set Up SendGrid
 
