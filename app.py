@@ -236,9 +236,15 @@ def send_email_via_azure(to_email, subject, body, from_email=None):
         email_client = EmailClient.from_connection_string(connection_string)
         app.logger.info("✅ EmailClient initialized successfully")
         
-        # Set default from email
+        # Set default from email - try Azure managed domain first
         if not from_email:
-            from_email = os.environ.get('EMAIL_FROM_ADDRESS', 'noreply@your-domain.azurecomm.net')
+            from_email = os.environ.get('EMAIL_FROM_ADDRESS')
+            if not from_email:
+                # Try to use a generic Azure managed domain format
+                from_email = 'donotreply@donotreply.azurecomm.net'
+                app.logger.info(f"🔄 Using fallback Azure managed domain: {from_email}")
+            else:
+                app.logger.info(f"📤 Using configured from address: {from_email}")
         
         app.logger.info(f"📤 From: {from_email}")
         app.logger.info(f"📨 To: {to_email}")
@@ -265,8 +271,19 @@ def send_email_via_azure(to_email, subject, body, from_email=None):
         return True
         
     except Exception as e:
-        app.logger.error(f"❌ Error sending email via Azure Communication Services: {e}")
+        error_message = str(e)
+        app.logger.error(f"❌ Error sending email via Azure Communication Services: {error_message}")
         app.logger.error(f"🔍 Exception type: {type(e).__name__}")
+        
+        # Provide specific guidance for common errors
+        if "DomainNotLinked" in error_message:
+            app.logger.error("💡 Fix: Link your domain in Azure Communication Services Email → Provision domains")
+            app.logger.error(f"💡 Or use Azure managed domain instead of custom domain")
+        elif "Unauthorized" in error_message:
+            app.logger.error("💡 Fix: Check your AZURE_COMMUNICATION_CONNECTION_STRING")
+        elif "InvalidSender" in error_message:
+            app.logger.error("💡 Fix: Verify your EMAIL_FROM_ADDRESS is properly configured")
+        
         return False
 
 def send_registry_notification_email(data):
