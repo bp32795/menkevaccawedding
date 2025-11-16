@@ -10,9 +10,50 @@
             <div class="col-lg-8 text-center">
                 <h1 class="hero-title">Menke & Vacca</h1>
                 <p class="hero-subtitle">Together forever, never apart. Maybe in distance, but never in heart.</p>
-                <div class="mt-4">
-                    <a href="{{ url_for('rsvp') }}" class="btn btn-light btn-lg me-3">RSVP Now</a>
-                    <a href="{{ url_for('registry') }}" class="btn btn-outline-light btn-lg">View Registry</a>
+                <div class="wedding-date-announcement">
+                    <h3 class="text-white mb-3">January 1st, 2027</h3>
+                    <p class="text-white-50">New Year's Day • Phoenix, Arizona</p>
+                </div>
+                
+                <!-- Countdown Timer -->
+                <div class="countdown-container mt-5">
+                    <div class="row justify-content-center">
+                        <div class="col-auto">
+                            <div class="countdown-item">
+                                <span id="days">0</span>
+                                <label>Days</label>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="countdown-item">
+                                <span id="hours">0</span>
+                                <label>Hours</label>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="countdown-item">
+                                <span id="minutes">0</span>
+                                <label>Minutes</label>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="countdown-item">
+                                <span id="seconds">0</span>
+                                <label>Seconds</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-5">
+                    <div class="alert alert-light d-inline-block">
+                        <i class="fas fa-calendar-check me-2"></i>
+                        <strong>RSVPs coming soon!</strong> We'll share the link when it's ready.
+                    </div>
+                    <div class="mt-3">
+                        <a href="{{ url_for('venue') }}" class="btn btn-light btn-lg me-3">See Our Venue</a>
+                        <a href="{{ url_for('registry') }}" class="btn btn-outline-light btn-lg">View Registry</a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -29,8 +70,8 @@
                     <div class="card-body">
                         <i class="fas fa-calendar-alt fa-3x text-primary mb-3"></i>
                         <h4 class="serif-font">When</h4>
-                        <p class="text-muted">Date to be announced</p>
-                        <p>Save the date details coming soon!</p>
+                        <p class="text-muted">January 1st, 2027</p>
+                        <p>New Year's Day celebration in the beautiful Arizona sunshine!</p>
                     </div>
                 </div>
             </div>
@@ -39,8 +80,9 @@
                     <div class="card-body">
                         <i class="fas fa-map-marker-alt fa-3x text-primary mb-3"></i>
                         <h4 class="serif-font">Where</h4>
-                        <p class="text-muted">Venue to be announced</p>
-                        <p>Location details coming soon!</p>
+                        <p class="text-muted">Different Pointe of View</p>
+                        <p>Hilton Phoenix Tapatio Cliffs Resort<br><small>North Phoenix, Arizona</small></p>
+                        <a href="{{ url_for('venue') }}" class="btn btn-outline-primary btn-sm mt-2">Learn More</a>
                     </div>
                 </div>
             </div>
@@ -49,6 +91,12 @@
                     <div class="card-body">
                         <i class="fas fa-heart fa-3x text-primary mb-3"></i>
                         <h4 class="serif-font">Celebration</h4>
+                        <p class="text-muted">Love & Joy</p>
+                        <p>Join us for a day filled with love, laughter, and memories!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
                         <p class="text-muted">Love & Joy</p>
                         <p>Join us for a day filled with love, laughter, and memories!</p>
                     </div>
@@ -65,8 +113,11 @@
             <div class="col-lg-6">
                 <h2 class="section-title text-start">Our Love Story</h2>
                 <p class="lead">Every love story is beautiful, but ours is our favorite.</p>
-                <p>From the moment we met, we knew something special was beginning. Through all of life's adventures, challenges, and joys, we've grown together and discovered that we truly are better together.</p>
-                <p>Now we're ready to take the next step in our journey, and we want to celebrate with all the people who mean the most to us.</p>
+                <p>From the moment we met on a Tinder date in October 2017, we knew something special was beginning. Through PA school, MBA school, and a cross-country move to Arizona, we've grown together and discovered that we truly are better together.</p>
+                <p>Brandon proposed in June 2025 in Davenport, IA, outside of where they had their first date many years ago. Now we're ready to take the next step in our journey!</p>
+                <a href="{{ url_for('timeline') }}" class="btn btn-primary">
+                    <i class="fas fa-book me-2"></i>Read Our Full Story
+                </a>
             </div>
             <div class="col-lg-6">
                 <div class="card">
@@ -87,10 +138,13 @@
         <div class="row justify-content-center">
             <div class="col-lg-8">
                 <h2 class="section-title">Join Our Celebration</h2>
-                <p class="lead">We can't wait to celebrate with you! Please let us know if you'll be joining us for our special day.</p>
+                <p class="lead">We can't wait to celebrate with you on New Year's Day 2027! Please check back soon for RSVP information.</p>
                 <div class="mt-4">
-                    <a href="{{ url_for('rsvp') }}" class="btn btn-primary btn-lg me-3">
-                        <i class="fas fa-reply me-2"></i>RSVP Now
+                    <a href="{{ url_for('venue') }}" class="btn btn-primary btn-lg me-3">
+                        <i class="fas fa-map-marker-alt me-2"></i>See Our Venue
+                    </a>
+                    <a href="{{ url_for('timeline') }}" class="btn btn-outline-primary btn-lg me-3">
+                        <i class="fas fa-book me-2"></i>Our Story
                     </a>
                     <a href="{{ url_for('registry') }}" class="btn btn-outline-primary btn-lg">
                         <i class="fas fa-gift me-2"></i>View Registry
@@ -100,4 +154,88 @@
         </div>
     </div>
 </section>
+
+<style>
+.wedding-date-announcement h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.5rem;
+    font-weight: 300;
+    letter-spacing: 2px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.countdown-container {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2rem;
+    border-radius: 20px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.countdown-item {
+    text-align: center;
+    margin: 0 1rem;
+}
+
+.countdown-item span {
+    display: block;
+    font-size: 3rem;
+    font-weight: 700;
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    font-family: 'Lato', sans-serif;
+}
+
+.countdown-item label {
+    display: block;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .countdown-item {
+        margin: 0 0.5rem;
+    }
+    
+    .countdown-item span {
+        font-size: 2rem;
+    }
+    
+    .wedding-date-announcement h3 {
+        font-size: 2rem;
+    }
+}
+</style>
+
+<script>
+// Countdown Timer to Wedding Date
+function updateCountdown() {
+    const weddingDate = new Date('January 1, 2027 17:00:00').getTime();
+    const now = new Date().getTime();
+    const timeLeft = weddingDate - now;
+
+    if (timeLeft > 0) {
+        const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+        document.getElementById('days').textContent = days;
+        document.getElementById('hours').textContent = hours;
+        document.getElementById('minutes').textContent = minutes;
+        document.getElementById('seconds').textContent = seconds;
+    } else {
+        // Wedding day has arrived!
+        document.querySelector('.countdown-container').innerHTML = 
+            '<h3 class="text-white">🎉 It\'s Our Wedding Day! 🎉</h3>';
+    }
+}
+
+// Update countdown every second
+updateCountdown();
+setInterval(updateCountdown, 1000);
+</script>
 {% endblock %}

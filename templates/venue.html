@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block title %}Our Venue{% endblock %}
+
+{% block content %}
+<!-- Hero Section with Main Wedding Photo -->
+<section class="hero-venue">
+    <div class="hero-image">
+        <img src="{{ url_for('static', filename='images/venue/Wedding.jpg') }}" alt="Wedding at Different Pointe of View" class="img-fluid">
+        <div class="hero-overlay">
+            <div class="container">
+                <div class="row justify-content-center text-center">
+                    <div class="col-lg-8">
+                        <h1 class="hero-title text-white mb-4">Our Venue</h1>
+                        <p class="hero-subtitle text-white-50 fs-5">Different Pointe of View</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Venue Details Section -->
+<section class="venue-details py-5">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto text-center">
+                <h2 class="section-title mb-4">Different Pointe of View</h2>
+                <p class="lead text-muted mb-4">
+                    Part of Hilton Phoenix Tapatio Cliffs Resort
+                </p>
+                
+                <div class="venue-info bg-light p-4 rounded mb-5">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5><i class="fas fa-map-marker-alt text-primary me-2"></i>Location</h5>
+                            <p class="mb-3">
+                                11111 N 7th St<br>
+                                Phoenix, AZ 85020<br>
+                                <small class="text-muted">North Phoenix</small>
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <h5><i class="fas fa-calendar-alt text-primary me-2"></i>Wedding Date</h5>
+                            <p class="mb-3">
+                                January 1st, 2027<br>
+                                <small class="text-muted">New Year's Day</small>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <a href="https://www.tapatiocliffshilton.com" target="_blank" class="btn btn-primary">
+                            <i class="fas fa-external-link-alt me-2"></i>Learn More About the Resort
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Hotel Information -->
+                <div class="hotel-info bg-primary text-white p-4 rounded mb-5">
+                    <h4 class="mb-3"><i class="fas fa-bed me-2"></i>Accommodations</h4>
+                    <p class="mb-3">
+                        We're working on securing room blocks at the resort and nearby hotels for our guests.
+                    </p>
+                    <div class="alert alert-light text-dark">
+                        <strong>Hotel booking information coming soon!</strong><br>
+                        <small>We'll share details about room blocks and special rates as they become available.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Venue Photo Gallery -->
+<section class="venue-gallery py-5 bg-light">
+    <div class="container">
+        <div class="row">
+            <div class="col-12 text-center mb-5">
+                <h2 class="section-title">Venue Gallery</h2>
+                <p class="text-muted">Get a glimpse of our beautiful wedding venue</p>
+            </div>
+        </div>
+        
+        <div class="row g-4">
+            <!-- Gallery Images -->
+            <div class="col-lg-6 col-md-6">
+                <div class="gallery-item">
+                    <img src="{{ url_for('static', filename='images/venue/wedding 2.jpg') }}" alt="Wedding Venue View 2" class="img-fluid rounded shadow-sm">
+                </div>
+            </div>
+            
+            <div class="col-lg-6 col-md-6">
+                <div class="gallery-item">
+                    <img src="{{ url_for('static', filename='images/venue/1368560997839-wedding-shot-2.jpeg') }}" alt="Wedding Ceremony Setup" class="img-fluid rounded shadow-sm">
+                </div>
+            </div>
+            
+            <div class="col-lg-6 col-md-6">
+                <div class="gallery-item">
+                    <img src="{{ url_for('static', filename='images/venue/1502303482722-ceremony-20.webp') }}" alt="Ceremony View" class="img-fluid rounded shadow-sm">
+                </div>
+            </div>
+            
+            <div class="col-lg-6 col-md-6">
+                <div class="gallery-item">
+                    <img src="{{ url_for('static', filename='images/venue/PHXTCPR_DPOVPatioWedding2_7157DECC-20A4-4D3B-89ADF9F1C1FD15AC_4c21e8e4-5a29-424c-a7b9b2d2af2ed35d.jpg') }}" alt="Patio Wedding Setup" class="img-fluid rounded shadow-sm">
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Location Map Section -->
+<section class="location-map py-5">
+    <div class="container">
+        <div class="row">
+            <div class="col-12 text-center mb-4">
+                <h2 class="section-title">Getting There</h2>
+                <p class="text-muted">Located in beautiful North Phoenix</p>
+            </div>
+        </div>
+        
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="map-container rounded shadow">
+                    <iframe 
+                        src="https://www.google.com/maps/embed/v1/place?key=AIzaSyBvOkBwgGlbUiuS09hdixhMxGBf_W2T0WY&q=11111+N+7th+St+Phoenix+AZ+85020"
+                        width="100%" 
+                        height="400" 
+                        style="border:0;" 
+                        allowfullscreen="" 
+                        loading="lazy" 
+                        referrerpolicy="no-referrer-when-downgrade">
+                    </iframe>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <a href="https://www.google.com/maps/dir/?api=1&destination=11111+N+7th+St+Phoenix+AZ+85020" 
+                       target="_blank" 
+                       class="btn btn-outline-primary">
+                        <i class="fas fa-directions me-2"></i>Get Directions
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+.hero-venue {
+    position: relative;
+    height: 70vh;
+    min-height: 500px;
+    overflow: hidden;
+}
+
+.hero-image {
+    position: relative;
+    height: 100%;
+    width: 100%;
+}
+
+.hero-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+.hero-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.3));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hero-title {
+    font-size: 3.5rem;
+    font-weight: 300;
+    letter-spacing: 2px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.hero-subtitle {
+    font-size: 1.5rem;
+    font-weight: 300;
+    letter-spacing: 1px;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.venue-info {
+    border-left: 4px solid var(--primary-color);
+}
+
+.gallery-item {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+    transition: transform 0.3s ease;
+}
+
+.gallery-item:hover {
+    transform: translateY(-5px);
+}
+
+.gallery-item img {
+    height: 250px;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.gallery-item:hover img {
+    transform: scale(1.05);
+}
+
+.map-container {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.section-title {
+    color: var(--primary-color);
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+    .hero-title {
+        font-size: 2.5rem;
+    }
+    
+    .hero-subtitle {
+        font-size: 1.2rem;
+    }
+    
+    .gallery-item img {
+        height: 200px;
+    }
+}
+</style>
+{% endblock %}

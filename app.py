@@ -169,6 +169,16 @@ def rsvp():
     """RSVP page - to be configured later"""
     return render_template('rsvp.html')
 
+@app.route('/venue')
+def venue():
+    """Venue page with location and photo gallery"""
+    return render_template('venue.html')
+
+@app.route('/timeline')
+def timeline():
+    """Timeline page with relationship story"""
+    return render_template('timeline.html')
+
 @app.route('/registry')
 def registry():
     """Registry page displaying items from Google Sheets"""

@@ -1,0 +1,426 @@
+{% extends "base.html" %}
+
+{% block title %}Our Story{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="timeline-hero py-5">
+    <div class="container">
+        <div class="row justify-content-center text-center">
+            <div class="col-lg-8">
+                <h1 class="hero-title serif-font mb-4">Our Love Story</h1>
+                <p class="lead text-muted">From a Tinder date to forever</p>
+                <div class="hero-divider mx-auto"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Timeline Section -->
+<section class="timeline-section py-5">
+    <div class="container">
+        <div class="timeline">
+            
+            <!-- Meeting -->
+            <div class="timeline-item">
+                <div class="timeline-marker">
+                    <i class="fas fa-heart"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="row align-items-center">
+                        <div class="col-lg-6">
+                            <div class="timeline-text">
+                                <h3 class="serif-font">The Beginning</h3>
+                                <span class="timeline-date">October 2017</span>
+                                <p>
+                                    Brandon and Sofie met on a Tinder date in October of 2017, when Sofie was a Junior at Augustana College and Brandon was just starting work at John Deere. Little did they know this first date would be the start of their forever.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="timeline-image">
+                                <img src="{{ url_for('static', filename='images/timeline/1.jpg') }}" alt="Brandon and Sofie's first photo" class="img-fluid rounded shadow">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Education Journey -->
+            <div class="timeline-item">
+                <div class="timeline-marker">
+                    <i class="fas fa-graduation-cap"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="row align-items-center">
+                        <div class="col-lg-6 order-lg-2">
+                            <div class="timeline-text">
+                                <h3 class="serif-font">Growing Together</h3>
+                                <span class="timeline-date">2018-2022</span>
+                                <p>
+                                    They have seen each other through PA and MBA school, supporting one another through late-night study sessions, challenging exams, and the pursuit of their dreams. Their love grew stronger with each milestone achieved together.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-lg-6 order-lg-1">
+                            <div class="timeline-images-side-by-side">
+                                <div class="row g-3">
+                                    <div class="col-6">
+                                        <img src="{{ url_for('static', filename='images/timeline/pa.jpg') }}" alt="PA School" class="img-fluid rounded shadow">
+                                        <small class="d-block text-center mt-2 text-muted">PA School</small>
+                                    </div>
+                                    <div class="col-6">
+                                        <img src="{{ url_for('static', filename='images/timeline/mba.jpg') }}" alt="MBA School" class="img-fluid rounded shadow">
+                                        <small class="d-block text-center mt-2 text-muted">MBA School</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Move to Phoenix -->
+            <div class="timeline-item">
+                <div class="timeline-marker">
+                    <i class="fas fa-home"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="row align-items-center">
+                        <div class="col-lg-6">
+                            <div class="timeline-text">
+                                <h3 class="serif-font">New Adventures</h3>
+                                <span class="timeline-date">2023</span>
+                                <p>
+                                    In 2023, they made a cross-country move to Phoenix, AZ, and they currently reside in Tempe, AZ with their cat-daughter Judy. This big move marked the beginning of their Arizona chapter together.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="timeline-images-side-by-side">
+                                <div class="row g-3">
+                                    <div class="col-6">
+                                        <img src="{{ url_for('static', filename='images/timeline/Judy 1.JPEG') }}" alt="Judy the cat" class="img-fluid rounded shadow">
+                                        <small class="d-block text-center mt-2 text-muted">Judy ❤️</small>
+                                    </div>
+                                    <div class="col-6">
+                                        <img src="{{ url_for('static', filename='images/timeline/judy 2.jpg') }}" alt="Judy the cat 2" class="img-fluid rounded shadow">
+                                        <small class="d-block text-center mt-2 text-muted">Our fur baby</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Adventures Section -->
+            <div class="timeline-item">
+                <div class="timeline-marker">
+                    <i class="fas fa-map-marked-alt"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="timeline-text text-center mb-5">
+                                <h3 class="serif-font">Adventures Together</h3>
+                                <span class="timeline-date">Over the Years</span>
+                                <p>
+                                    Over the years, they have adventured to many places across the country, creating memories and strengthening their bond with each journey.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Adventure Gallery -->
+                    <div class="adventure-gallery">
+                        <div class="row g-4">
+                            <div class="col-lg-4 col-md-6">
+                                <div class="adventure-card">
+                                    <img src="{{ url_for('static', filename='images/timeline/lv.jpg') }}" alt="Las Vegas" class="img-fluid rounded">
+                                    <h5 class="mt-3 text-center">Las Vegas</h5>
+                                </div>
+                            </div>
+                            
+                            <div class="col-lg-4 col-md-6">
+                                <div class="adventure-card">
+                                    <img src="{{ url_for('static', filename='images/timeline/green bay.jpg') }}" alt="Green Bay" class="img-fluid rounded">
+                                    <h5 class="mt-3 text-center">Green Bay</h5>
+                                </div>
+                            </div>
+                            
+                            <div class="col-lg-4 col-md-6">
+                                <div class="adventure-card">
+                                    <img src="{{ url_for('static', filename='images/timeline/dyer.jpg') }}" alt="Dyersville, IA" class="img-fluid rounded">
+                                    <h5 class="mt-3 text-center">Dyersville, IA</h5>
+                                </div>
+                            </div>
+                            
+                            <div class="col-lg-4 col-md-6">
+                                <div class="adventure-card">
+                                    <img src="{{ url_for('static', filename='images/timeline/STL.jpg') }}" alt="St. Louis" class="img-fluid rounded">
+                                    <h5 class="mt-3 text-center">St. Louis</h5>
+                                </div>
+                            </div>
+                            
+                            <div class="col-lg-4 col-md-6">
+                                <div class="adventure-card">
+                                    <img src="{{ url_for('static', filename='images/timeline/Rocky Mountains.jpg') }}" alt="Rocky Mountains" class="img-fluid rounded">
+                                    <h5 class="mt-3 text-center">Rocky Mountains</h5>
+                                </div>
+                            </div>
+                            
+                            <div class="col-lg-4 col-md-6">
+                                <div class="adventure-card">
+                                    <img src="{{ url_for('static', filename='images/timeline/Sedona.jpg') }}" alt="Sedona, AZ" class="img-fluid rounded">
+                                    <h5 class="mt-3 text-center">Sedona, AZ</h5>
+                                </div>
+                            </div>
+                            
+                            <div class="col-lg-6 col-md-6 mx-auto">
+                                <div class="adventure-card">
+                                    <img src="{{ url_for('static', filename='images/timeline/San Diego.jpg') }}" alt="San Diego" class="img-fluid rounded">
+                                    <h5 class="mt-3 text-center">San Diego</h5>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Proposal -->
+            <div class="timeline-item">
+                <div class="timeline-marker proposal-marker">
+                    <i class="fas fa-ring"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="row align-items-center">
+                        <div class="col-lg-6 order-lg-2">
+                            <div class="timeline-text">
+                                <h3 class="serif-font">The Proposal</h3>
+                                <span class="timeline-date">June 2025</span>
+                                <p>
+                                    Brandon proposed in June 2025 in Davenport, IA, outside of where they had their first date many years ago. Coming full circle to where it all began, he asked her to be his forever, and she said yes! ✨
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-lg-6 order-lg-1">
+                            <div class="timeline-image">
+                                <img src="{{ url_for('static', filename='images/timeline/proposal.jpeg') }}" alt="The Proposal" class="img-fluid rounded shadow proposal-image">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Future -->
+            <div class="timeline-item final-item">
+                <div class="timeline-marker future-marker">
+                    <i class="fas fa-infinity"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="text-center">
+                        <h3 class="serif-font">Forever Starts Now</h3>
+                        <span class="timeline-date">January 1st, 2027</span>
+                        <p class="lead">
+                            And so begins the rest of their beautiful love story...
+                        </p>
+                        <div class="mt-4">
+                            <a href="{{ url_for('venue') }}" class="btn btn-primary btn-lg">
+                                <i class="fas fa-map-marker-alt me-2"></i>See Our Venue
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+.timeline-hero {
+    background: linear-gradient(135deg, var(--light-bg) 0%, #f8f9fa 100%);
+}
+
+.hero-title {
+    font-size: 3.5rem;
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+}
+
+.hero-divider {
+    width: 80px;
+    height: 3px;
+    background: var(--accent-color);
+    margin: 2rem auto;
+}
+
+.timeline {
+    position: relative;
+    padding: 2rem 0;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(180deg, var(--primary-color) 0%, var(--accent-color) 100%);
+    transform: translateX(-50%);
+    z-index: 1;
+}
+
+.timeline-item {
+    position: relative;
+    margin: 4rem 0;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 60px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3;
+    box-shadow: 0 0 0 8px white, 0 0 0 12px var(--primary-color);
+}
+
+.timeline-marker i {
+    color: white;
+    font-size: 1.5rem;
+}
+
+.proposal-marker {
+    background: linear-gradient(45deg, var(--accent-color), #FFD700);
+    box-shadow: 0 0 0 8px white, 0 0 0 12px var(--accent-color);
+    animation: pulse 2s infinite;
+}
+
+.future-marker {
+    background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+    box-shadow: 0 0 0 8px white, 0 0 0 12px var(--primary-color);
+}
+
+@keyframes pulse {
+    0% { transform: translateX(-50%) scale(1); }
+    50% { transform: translateX(-50%) scale(1.1); }
+    100% { transform: translateX(-50%) scale(1); }
+}
+
+.timeline-content {
+    background: white;
+    padding: 2.5rem;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    margin: 0 1rem;
+    position: relative;
+}
+
+.timeline-text h3 {
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+}
+
+.timeline-date {
+    color: var(--accent-color);
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.timeline-image img,
+.timeline-images-side-by-side img {
+    height: 300px;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.timeline-images-side-by-side img {
+    height: 180px;
+}
+
+.timeline-image img:hover,
+.timeline-images-side-by-side img:hover {
+    transform: scale(1.05);
+}
+
+.proposal-image {
+    border: 4px solid var(--accent-color);
+}
+
+.adventure-gallery {
+    margin-top: 3rem;
+}
+
+.adventure-card {
+    text-align: center;
+    transition: transform 0.3s ease;
+}
+
+.adventure-card:hover {
+    transform: translateY(-10px);
+}
+
+.adventure-card img {
+    height: 200px;
+    width: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.adventure-card:hover img {
+    transform: scale(1.05);
+}
+
+.adventure-card h5 {
+    color: var(--text-dark);
+    font-weight: 600;
+}
+
+.final-item .timeline-content {
+    background: linear-gradient(135deg, var(--light-bg) 0%, white 100%);
+    border: 2px solid var(--primary-color);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .timeline::before {
+        left: 30px;
+    }
+    
+    .timeline-marker {
+        left: 30px;
+        width: 40px;
+        height: 40px;
+    }
+    
+    .timeline-marker i {
+        font-size: 1rem;
+    }
+    
+    .timeline-content {
+        margin-left: 80px;
+        margin-right: 0;
+    }
+    
+    .hero-title {
+        font-size: 2.5rem;
+    }
+    
+    .timeline-image img,
+    .timeline-images-side-by-side img {
+        height: 200px;
+    }
+    
+    .adventure-card img {
+        height: 150px;
+    }
+}
+</style>
+{% endblock %}
