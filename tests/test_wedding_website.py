@@ -77,7 +77,7 @@ class HomePageTestCase(WeddingWebsiteTestCase):
     def test_home_page_cta_buttons(self):
         """Test that call-to-action buttons are present"""
         response = self.client.get('/')
-        self.assertIn(b'RSVP Now', response.data)
+        self.assertIn(b'See Our Venue', response.data)
         self.assertIn(b'View Registry', response.data)
 
 
@@ -96,6 +96,54 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         response = self.client.get('/rsvp')
         self.assertIn(b'RSVP Form Coming Soon', response.data)
         self.assertIn(b'bp32795@gmail.com', response.data)
+
+
+class VenuePageTestCase(WeddingWebsiteTestCase):
+    """Test cases for the venue page"""
+    
+    def test_venue_page_loads(self):
+        """Test that venue page loads successfully"""
+        response = self.client.get('/venue')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Different Pointe of View', response.data)
+        self.assertIn(b'Tapatio Cliffs Resort', response.data)
+    
+    def test_venue_content_display(self):
+        """Test that venue details are properly displayed"""
+        response = self.client.get('/venue')
+        self.assertIn(b'North Phoenix', response.data)
+        self.assertIn(b'Hilton Phoenix Tapatio Cliffs Resort', response.data)
+        self.assertIn(b'Venue Gallery', response.data)
+    
+    def test_venue_booking_info(self):
+        """Test that hotel booking information is displayed"""
+        response = self.client.get('/venue')
+        self.assertIn(b'Accommodations', response.data)
+
+
+class TimelinePageTestCase(WeddingWebsiteTestCase):
+    """Test cases for the timeline page"""
+    
+    def test_timeline_page_loads(self):
+        """Test that timeline page loads successfully"""
+        response = self.client.get('/timeline')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Our Love Story', response.data)
+        self.assertIn(b'timeline', response.data)
+    
+    def test_timeline_story_content(self):
+        """Test that story milestones are displayed"""
+        response = self.client.get('/timeline')
+        self.assertIn(b'2017', response.data)  # First meeting year
+        self.assertIn(b'2025', response.data)  # Proposal year
+        self.assertIn(b'Tinder', response.data)  # How they met
+        self.assertIn(b'Brandon', response.data)
+        self.assertIn(b'Sofie', response.data)
+    
+    def test_timeline_adventure_gallery(self):
+        """Test that adventure gallery is displayed"""
+        response = self.client.get('/timeline')
+        self.assertIn(b'Adventures Together', response.data)
 
 
 class RegistryPageTestCase(WeddingWebsiteTestCase):
@@ -383,6 +431,8 @@ if __name__ == '__main__':
     test_classes = [
         HomePageTestCase,
         RSVPPageTestCase,
+        VenuePageTestCase,
+        TimelinePageTestCase,
         RegistryPageTestCase,
         PurchaseItemTestCase,
         UtilityFunctionsTestCase,
