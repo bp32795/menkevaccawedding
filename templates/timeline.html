@@ -114,74 +114,170 @@
                 </div>
             </div>
 
-            <!-- Adventures Section -->
-            <div class="timeline-item">
+            <!-- Adventures Introduction -->
+            <div class="timeline-item adventures-section">
                 <div class="timeline-marker">
                     <i class="fas fa-map-marked-alt"></i>
                 </div>
                 <div class="timeline-content">
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="timeline-text text-center mb-5">
-                                <h3 class="serif-font">Adventures Together</h3>
-                                <span class="timeline-date">Over the Years</span>
-                                <p>
-                                    Over the years, they have adventured to many places across the country, creating memories and strengthening their bond with each journey.
-                                </p>
+                    <div class="text-center">
+                        <h3 class="serif-font">Adventures Together</h3>
+                        <span class="timeline-date">Over the Years</span>
+                        <p class="lead">
+                            Over the years, they have adventured to many places across the country, creating memories and strengthening their bond with each journey.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Las Vegas Adventure -->
+            <div class="timeline-item">
+                <div class="timeline-marker">
+                    <i class="fas fa-dice"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="row align-items-center">
+                        <div class="col-lg-6">
+                            <div class="timeline-text">
+                                <h4 class="serif-font">Las Vegas</h4>
+                                <p>Bright lights, shows, and unforgettable memories in the entertainment capital of the world.</p>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="timeline-image">
+                                <img src="{{ url_for('static', filename='images/timeline/lv.jpg') }}" alt="Las Vegas Adventure" class="img-fluid rounded shadow">
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Adventure Gallery -->
-                    <div class="adventure-gallery">
-                        <div class="row g-4">
-                            <div class="col-lg-4 col-md-6">
-                                <div class="adventure-card">
-                                    <img src="{{ url_for('static', filename='images/timeline/lv.jpg') }}" alt="Las Vegas" class="img-fluid rounded">
-                                    <h5 class="mt-3 text-center">Las Vegas</h5>
-                                </div>
+                </div>
+            </div>
+
+            <!-- Green Bay Adventure -->
+            <div class="timeline-item">
+                <div class="timeline-marker">
+                    <i class="fas fa-football-ball"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="row align-items-center">
+                        <div class="col-lg-6 order-lg-2">
+                            <div class="timeline-text">
+                                <h4 class="serif-font">Green Bay</h4>
+                                <p>Cheering on the Packers and experiencing the legendary Lambeau Field together.</p>
                             </div>
-                            
-                            <div class="col-lg-4 col-md-6">
-                                <div class="adventure-card">
-                                    <img src="{{ url_for('static', filename='images/timeline/green bay.jpg') }}" alt="Green Bay" class="img-fluid rounded">
-                                    <h5 class="mt-3 text-center">Green Bay</h5>
-                                </div>
+                        </div>
+                        <div class="col-lg-6 order-lg-1">
+                            <div class="timeline-image">
+                                <img src="{{ url_for('static', filename='images/timeline/green bay.jpg') }}" alt="Green Bay Adventure" class="img-fluid rounded shadow">
                             </div>
-                            
-                            <div class="col-lg-4 col-md-6">
-                                <div class="adventure-card">
-                                    <img src="{{ url_for('static', filename='images/timeline/dyer.jpg') }}" alt="Dyersville, IA" class="img-fluid rounded">
-                                    <h5 class="mt-3 text-center">Dyersville, IA</h5>
-                                </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dyersville Adventure -->
+            <div class="timeline-item">
+                <div class="timeline-marker">
+                    <i class="fas fa-baseball-ball"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="row align-items-center">
+                        <div class="col-lg-6">
+                            <div class="timeline-text">
+                                <h4 class="serif-font">Dyersville, IA</h4>
+                                <p>Visiting the iconic Field of Dreams baseball field and stepping into movie magic.</p>
                             </div>
-                            
-                            <div class="col-lg-4 col-md-6">
-                                <div class="adventure-card">
-                                    <img src="{{ url_for('static', filename='images/timeline/STL.jpg') }}" alt="St. Louis" class="img-fluid rounded">
-                                    <h5 class="mt-3 text-center">St. Louis</h5>
-                                </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="timeline-image">
+                                <img src="{{ url_for('static', filename='images/timeline/dyer.jpg') }}" alt="Dyersville Field of Dreams" class="img-fluid rounded shadow">
                             </div>
-                            
-                            <div class="col-lg-4 col-md-6">
-                                <div class="adventure-card">
-                                    <img src="{{ url_for('static', filename='images/timeline/Rocky Mountains.jpg') }}" alt="Rocky Mountains" class="img-fluid rounded">
-                                    <h5 class="mt-3 text-center">Rocky Mountains</h5>
-                                </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- St. Louis Adventure -->
+            <div class="timeline-item">
+                <div class="timeline-marker">
+                    <i class="fas fa-monument"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="row align-items-center">
+                        <div class="col-lg-6 order-lg-2">
+                            <div class="timeline-text">
+                                <h4 class="serif-font">St. Louis</h4>
+                                <p>Exploring the Gateway Arch and discovering the charm of the Gateway City.</p>
                             </div>
-                            
-                            <div class="col-lg-4 col-md-6">
-                                <div class="adventure-card">
-                                    <img src="{{ url_for('static', filename='images/timeline/Sedona.jpg') }}" alt="Sedona, AZ" class="img-fluid rounded">
-                                    <h5 class="mt-3 text-center">Sedona, AZ</h5>
-                                </div>
+                        </div>
+                        <div class="col-lg-6 order-lg-1">
+                            <div class="timeline-image">
+                                <img src="{{ url_for('static', filename='images/timeline/STL.jpg') }}" alt="St. Louis Adventure" class="img-fluid rounded shadow">
                             </div>
-                            
-                            <div class="col-lg-6 col-md-6 mx-auto">
-                                <div class="adventure-card">
-                                    <img src="{{ url_for('static', filename='images/timeline/San Diego.jpg') }}" alt="San Diego" class="img-fluid rounded">
-                                    <h5 class="mt-3 text-center">San Diego</h5>
-                                </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rocky Mountains Adventure -->
+            <div class="timeline-item">
+                <div class="timeline-marker">
+                    <i class="fas fa-mountain"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="row align-items-center">
+                        <div class="col-lg-6">
+                            <div class="timeline-text">
+                                <h4 class="serif-font">Rocky Mountains</h4>
+                                <p>Hiking through breathtaking mountain landscapes and reaching new heights together.</p>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="timeline-image">
+                                <img src="{{ url_for('static', filename='images/timeline/Rocky Mountains.jpg') }}" alt="Rocky Mountains Adventure" class="img-fluid rounded shadow">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sedona Adventure -->
+            <div class="timeline-item">
+                <div class="timeline-marker">
+                    <i class="fas fa-sun"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="row align-items-center">
+                        <div class="col-lg-6 order-lg-2">
+                            <div class="timeline-text">
+                                <h4 class="serif-font">Sedona, AZ</h4>
+                                <p>Exploring the stunning red rocks and spiritual energy of Arizona's most beautiful desert landscape.</p>
+                            </div>
+                        </div>
+                        <div class="col-lg-6 order-lg-1">
+                            <div class="timeline-image">
+                                <img src="{{ url_for('static', filename='images/timeline/Sedona.jpg') }}" alt="Sedona Adventure" class="img-fluid rounded shadow">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- San Diego Adventure -->
+            <div class="timeline-item">
+                <div class="timeline-marker">
+                    <i class="fas fa-water"></i>
+                </div>
+                <div class="timeline-content">
+                    <div class="row align-items-center">
+                        <div class="col-lg-6">
+                            <div class="timeline-text">
+                                <h4 class="serif-font">San Diego</h4>
+                                <p>Soaking up the California sunshine, beautiful beaches, and perfect weather by the Pacific Ocean.</p>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="timeline-image">
+                                <img src="{{ url_for('static', filename='images/timeline/San Diego.jpg') }}" alt="San Diego Adventure" class="img-fluid rounded shadow">
                             </div>
                         </div>
                     </div>
@@ -321,6 +417,13 @@
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
     margin: 0 1rem;
     position: relative;
+    z-index: 2;
+}
+
+/* Fix for Adventures section to prevent timeline line overlap */
+.adventures-section .timeline-content {
+    z-index: 4;
+    position: relative;
 }
 
 .timeline-text h3 {
@@ -352,35 +455,6 @@
 
 .proposal-image {
     border: 4px solid var(--accent-color);
-}
-
-.adventure-gallery {
-    margin-top: 3rem;
-}
-
-.adventure-card {
-    text-align: center;
-    transition: transform 0.3s ease;
-}
-
-.adventure-card:hover {
-    transform: translateY(-10px);
-}
-
-.adventure-card img {
-    height: 200px;
-    width: 100%;
-    object-fit: cover;
-    transition: transform 0.3s ease;
-}
-
-.adventure-card:hover img {
-    transform: scale(1.05);
-}
-
-.adventure-card h5 {
-    color: var(--text-dark);
-    font-weight: 600;
 }
 
 .final-item .timeline-content {
@@ -416,10 +490,6 @@
     .timeline-image img,
     .timeline-images-side-by-side img {
         height: 200px;
-    }
-    
-    .adventure-card img {
-        height: 150px;
     }
 }
 </style>
