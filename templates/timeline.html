@@ -269,13 +269,13 @@
                 </div>
                 <div class="timeline-content">
                     <div class="row align-items-center">
-                        <div class="col-lg-6">
+                        <div class="col-lg-6 order-lg-2">
                             <div class="timeline-text">
                                 <h4 class="serif-font">San Diego</h4>
                                 <p>Soaking up the California sunshine, beautiful beaches, and perfect weather by the Pacific Ocean.</p>
                             </div>
                         </div>
-                        <div class="col-lg-6">
+                        <div class="col-lg-6 order-lg-1">
                             <div class="timeline-image">
                                 <img src="{{ url_for('static', filename='images/timeline/San Diego.jpg') }}" alt="San Diego Adventure" class="img-fluid rounded shadow">
                             </div>
@@ -365,12 +365,12 @@
     width: 4px;
     background: linear-gradient(180deg, var(--primary-color) 0%, var(--accent-color) 100%);
     transform: translateX(-50%);
-    z-index: 1;
+    z-index: 10;
 }
 
 .timeline-item {
     position: relative;
-    margin: 4rem 0;
+    margin: 2rem 0;
 }
 
 .timeline-marker {
@@ -384,7 +384,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 3;
+    z-index: 15;
     box-shadow: 0 0 0 8px white, 0 0 0 12px var(--primary-color);
 }
 
@@ -397,11 +397,13 @@
     background: linear-gradient(45deg, var(--accent-color), #FFD700);
     box-shadow: 0 0 0 8px white, 0 0 0 12px var(--accent-color);
     animation: pulse 2s infinite;
+    z-index: 15;
 }
 
 .future-marker {
     background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
     box-shadow: 0 0 0 8px white, 0 0 0 12px var(--primary-color);
+    z-index: 15;
 }
 
 @keyframes pulse {
@@ -417,12 +419,12 @@
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
     margin: 0 1rem;
     position: relative;
-    z-index: 2;
+    z-index: 5;
 }
 
 /* Fix for Adventures section to prevent timeline line overlap */
 .adventures-section .timeline-content {
-    z-index: 4;
+    z-index: 5;
     position: relative;
 }
 
@@ -437,20 +439,30 @@
     font-size: 1.1rem;
 }
 
-.timeline-image img,
-.timeline-images-side-by-side img {
+.timeline-image img {
+    width: 100%;
     height: 300px;
     object-fit: cover;
+    object-position: center;
     transition: transform 0.3s ease;
 }
 
 .timeline-images-side-by-side img {
+    width: 100%;
     height: 180px;
+    object-fit: cover;
+    object-position: center;
 }
 
 .timeline-image img:hover,
 .timeline-images-side-by-side img:hover {
     transform: scale(1.05);
+}
+
+/* Handle vertical images without extra whitespace */
+.timeline-image {
+    overflow: hidden;
+    border-radius: 8px;
 }
 
 .proposal-image {
@@ -466,12 +478,14 @@
 @media (max-width: 768px) {
     .timeline::before {
         left: 30px;
+        z-index: 10;
     }
     
     .timeline-marker {
         left: 30px;
         width: 40px;
         height: 40px;
+        z-index: 15;
     }
     
     .timeline-marker i {
@@ -481,6 +495,11 @@
     .timeline-content {
         margin-left: 80px;
         margin-right: 0;
+        z-index: 5;
+    }
+    
+    .timeline-item {
+        margin: 1.5rem 0;
     }
     
     .hero-title {
