@@ -111,7 +111,7 @@
     </div>
 </section>
 
-<!-- Location Map Section -->
+<!-- Location Section -->
 <section class="location-map py-5">
     <div class="container">
         <div class="row">
@@ -122,25 +122,26 @@
         </div>
         
         <div class="row justify-content-center">
-            <div class="col-lg-10">
-                <div class="map-container rounded shadow">
-                    <iframe 
-                        src="https://www.google.com/maps/embed/v1/place?key=AIzaSyBvOkBwgGlbUiuS09hdixhMxGBf_W2T0WY&q=11111+N+7th+St+Phoenix+AZ+85020"
-                        width="100%" 
-                        height="400" 
-                        style="border:0;" 
-                        allowfullscreen="" 
-                        loading="lazy" 
-                        referrerpolicy="no-referrer-when-downgrade">
-                    </iframe>
-                </div>
-                
-                <div class="text-center mt-4">
-                    <a href="https://www.google.com/maps/dir/?api=1&destination=11111+N+7th+St+Phoenix+AZ+85020" 
-                       target="_blank" 
-                       class="btn btn-outline-primary">
-                        <i class="fas fa-directions me-2"></i>Get Directions
-                    </a>
+            <div class="col-lg-8">
+                <div class="location-info bg-light p-5 rounded shadow text-center">
+                    <div class="mb-4">
+                        <i class="fas fa-map-marker-alt fa-3x text-primary mb-3"></i>
+                        <h4 class="serif-font">Different Pointe of View</h4>
+                        <p class="lead">11111 N 7th St<br>Phoenix, AZ 85020</p>
+                    </div>
+                    
+                    <div class="d-grid gap-3 d-md-flex justify-content-md-center">
+                        <a href="https://www.google.com/maps/place/11111+N+7th+St,+Phoenix,+AZ+85020" 
+                           target="_blank" 
+                           class="btn btn-primary btn-lg">
+                            <i class="fas fa-map-marked-alt me-2"></i>View on Google Maps
+                        </a>
+                        <a href="https://www.google.com/maps/dir/?api=1&destination=11111+N+7th+St+Phoenix+AZ+85020" 
+                           target="_blank" 
+                           class="btn btn-outline-primary btn-lg">
+                            <i class="fas fa-directions me-2"></i>Get Directions
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -219,10 +220,13 @@
     transform: scale(1.05);
 }
 
-.map-container {
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+.location-info {
+    background: var(--light-bg) !important;
+    border: 2px solid var(--primary-color);
+}
+
+.location-info i {
+    color: var(--primary-color);
 }
 
 .section-title {
