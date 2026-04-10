@@ -5,14 +5,13 @@ A Flask web application for wedding RSVP and registry management
 
 from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
 from flask_mail import Mail, Message
-import gspread
-from google.oauth2.service_account import Credentials
 import os
 from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 import json
 import logging
+import uuid
 from dotenv import load_dotenv
 
 # Try to import Azure Communication Services (optional)
@@ -22,6 +21,22 @@ try:
 except ImportError:
     AZURE_EMAIL_AVAILABLE = False
     print("Azure Communication Services not available. Using SMTP fallback.")
+
+# Try to import Azure Cosmos DB
+try:
+    from azure.cosmos import CosmosClient, PartitionKey, exceptions as cosmos_exceptions
+    COSMOS_AVAILABLE = True
+except ImportError:
+    COSMOS_AVAILABLE = False
+    print("Azure Cosmos DB not available. Registry will not work.")
+
+# Try to import OpenAI for AI-powered autofill
+try:
+    from openai import AzureOpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+    print("OpenAI not available. AI autofill disabled.")
 
 # Load environment variables from .env file
 load_dotenv()
@@ -80,84 +95,152 @@ else:
 # Initialize Flask-Mail
 mail = Mail(app)
 
-# Google Sheets configuration
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-SPREADSHEET_ID = '1VKJ3ZPchlJ1CFpRgBygx0HnwO5nDZUnwHouZSsRLDlE'
+# Cosmos DB configuration
+COSMOS_ENDPOINT = os.environ.get('COSMOS_ENDPOINT', '')
+COSMOS_KEY = os.environ.get('COSMOS_KEY', '')
+COSMOS_DATABASE = os.environ.get('COSMOS_DATABASE', 'wedding')
+COSMOS_CONTAINER = os.environ.get('COSMOS_CONTAINER', 'registry')
 
-def get_google_sheets_client():
-    """Initialize Google Sheets client with service account credentials"""
-    
-    try:
-        # Load credentials from environment variable
-        creds_json = os.environ.get('GOOGLE_SHEETS_CREDS_JSON')
-        
-        # Debug logging
-        app.logger.info(f"🔍 GOOGLE_SHEETS_CREDS_JSON exists: {creds_json is not None}")
-        if creds_json:
-            app.logger.info(f"🔍 JSON length: {len(creds_json)} characters")
-            app.logger.info(f"🔍 JSON starts with: {creds_json[:100]}...")
-        else:
-            app.logger.error("❌ GOOGLE_SHEETS_CREDS_JSON environment variable not set")
-            # List all environment variables for debugging
-            env_vars = [key for key in os.environ.keys() if 'GOOGLE' in key.upper()]
-            app.logger.error(f"🔍 Available env vars with 'GOOGLE': {env_vars}")
-            return None
-        
-        # Parse JSON credentials
-        app.logger.info("🔍 Attempting to parse JSON...")
-        creds_info = json.loads(creds_json)
-        app.logger.info("✅ JSON parsed successfully")
-        
-        # Fix private key newlines - convert \\n back to actual newlines
-        if 'private_key' in creds_info:
-            original_key = creds_info['private_key']
-            fixed_key = original_key.replace('\\n', '\n')
-            creds_info['private_key'] = fixed_key
-            app.logger.info("🔧 Fixed private key newlines")
-            app.logger.info(f"🔍 Key starts with: {fixed_key[:50]}...")
-            app.logger.info(f"🔍 Key ends with: {fixed_key[-50]}...")
-        
-        credentials = Credentials.from_service_account_info(creds_info, scopes=SCOPES)
-        client = gspread.authorize(credentials)
-        app.logger.info("✅ Google Sheets client created successfully")
-        return client
-    except json.JSONDecodeError as e:
-        app.logger.error(f"❌ JSON decode error: {e}")
-        app.logger.error(f"🔍 Problematic JSON: {creds_json}")
+
+def get_cosmos_container():
+    """Initialize and return the Cosmos DB container client"""
+    if not COSMOS_AVAILABLE:
+        app.logger.error("❌ Azure Cosmos DB library not available")
         return None
+
+    if not COSMOS_ENDPOINT or not COSMOS_KEY:
+        app.logger.error("❌ COSMOS_ENDPOINT or COSMOS_KEY not configured")
+        return None
+
+    try:
+        client = CosmosClient(COSMOS_ENDPOINT, COSMOS_KEY)
+        database = client.create_database_if_not_exists(id=COSMOS_DATABASE)
+        container = database.create_container_if_not_exists(
+            id=COSMOS_CONTAINER,
+            partition_key=PartitionKey(path="/id"),
+            offer_throughput=400
+        )
+        return container
     except Exception as e:
-        app.logger.error(f"❌ Error initializing Google Sheets client: {e}")
+        app.logger.error(f"❌ Error connecting to Cosmos DB: {e}")
         return None
 
 def scrape_title_from_url(url):
     """Scrape title from product URL if title is missing"""
+    result = scrape_product_metadata(url)
+    return result.get('title') or 'Product'
+
+
+def scrape_product_metadata(url):
+    """Scrape product metadata from URL using OG tags and HTML selectors.
+    Returns dict with title, image_url, price (best-effort).
+    """
+    result = {'title': '', 'image_url': '', 'price': 0}
     try:
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                          '(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.content, 'html.parser')
-        
-        # Try multiple selectors for title
-        title_selectors = [
-            'h1',
-            '.product-title',
-            '[data-testid="product-title"]',
-            '.pdp-product-name',
-            'title'
-        ]
-        
-        for selector in title_selectors:
-            element = soup.select_one(selector)
-            if element and element.get_text(strip=True):
-                return element.get_text(strip=True)
-        
-        return "Product"  # Fallback title
+        resp = requests.get(url, headers=headers, timeout=10)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.content, 'html.parser')
+
+        # --- Title ---
+        og_title = soup.find('meta', property='og:title')
+        if og_title and og_title.get('content', '').strip():
+            result['title'] = og_title['content'].strip()
+        else:
+            for sel in ['h1', '.product-title', '[data-testid="product-title"]', 'title']:
+                el = soup.select_one(sel)
+                if el and el.get_text(strip=True):
+                    result['title'] = el.get_text(strip=True)
+                    break
+
+        # --- Image ---
+        og_image = soup.find('meta', property='og:image')
+        if og_image and og_image.get('content', '').strip():
+            result['image_url'] = og_image['content'].strip()
+
+        # --- Price ---
+        # Try OG price
+        og_price = soup.find('meta', property='og:price:amount') or soup.find('meta', property='product:price:amount')
+        if og_price and og_price.get('content', '').strip():
+            try:
+                result['price'] = float(og_price['content'].strip().replace(',', ''))
+            except ValueError:
+                pass
+        # Fallback: JSON-LD
+        if not result['price']:
+            for script in soup.find_all('script', type='application/ld+json'):
+                try:
+                    ld = json.loads(script.string)
+                    items = ld if isinstance(ld, list) else [ld]
+                    for item in items:
+                        offers = item.get('offers', item.get('Offers', {}))
+                        if isinstance(offers, list):
+                            offers = offers[0] if offers else {}
+                        price_val = offers.get('price') or offers.get('lowPrice')
+                        if price_val:
+                            result['price'] = float(str(price_val).replace(',', ''))
+                            break
+                except Exception:
+                    continue
+
+        return result
     except Exception as e:
-        app.logger.warning(f"Could not scrape title from {url}: {e}")
-        return "Product"
+        app.logger.warning(f"Could not scrape metadata from {url}: {e}")
+        return result
+
+
+def ai_extract_product_info(url, html_snippet):
+    """Use Azure OpenAI to extract product info from HTML when OG tags are sparse."""
+    if not OPENAI_AVAILABLE:
+        return {}
+
+    endpoint = os.environ.get('AZURE_OPENAI_ENDPOINT')
+    key = os.environ.get('AZURE_OPENAI_KEY')
+    deployment = os.environ.get('AZURE_OPENAI_DEPLOYMENT', 'gpt-4o-mini')
+
+    if not endpoint or not key:
+        app.logger.info("Azure OpenAI not configured, skipping AI autofill")
+        return {}
+
+    try:
+        client = AzureOpenAI(
+            azure_endpoint=endpoint,
+            api_key=key,
+            api_version="2024-10-21"
+        )
+
+        # Trim HTML to a reasonable size
+        trimmed = html_snippet[:8000]
+
+        response = client.chat.completions.create(
+            model=deployment,
+            messages=[
+                {"role": "system", "content": (
+                    "You extract product information from HTML. "
+                    "Return ONLY valid JSON with keys: title, image_url, price. "
+                    "price should be a number (no $ sign). "
+                    "If you cannot determine a field, use an empty string for text or 0 for price."
+                )},
+                {"role": "user", "content": f"URL: {url}\n\nHTML:\n{trimmed}"}
+            ],
+            temperature=0,
+            max_tokens=200
+        )
+
+        text = response.choices[0].message.content.strip()
+        # Strip markdown code fences if present
+        if text.startswith('```'):
+            text = text.split('\n', 1)[1] if '\n' in text else text[3:]
+            if text.endswith('```'):
+                text = text[:-3]
+            text = text.strip()
+        return json.loads(text)
+    except Exception as e:
+        app.logger.warning(f"AI extraction failed: {e}")
+        return {}
 
 @app.route('/')
 def home():
@@ -174,50 +257,46 @@ def venue():
     """Venue page with location and photo gallery"""
     return render_template('venue.html')
 
-@app.route('/timeline')
+@app.route('/ourstory')
 def timeline():
     """Timeline page with relationship story"""
     return render_template('timeline.html')
 
 @app.route('/registry')
 def registry():
-    """Registry page displaying items from Google Sheets"""
+    """Registry page displaying items from Cosmos DB"""
     try:
-        client = get_google_sheets_client()
-        if not client:
+        container = get_cosmos_container()
+        if not container:
             flash('Unable to load registry at this time. Please try again later.', 'error')
             return render_template('registry.html', items=[])
-        
-        sheet = client.open_by_key(SPREADSHEET_ID).sheet1
-        records = sheet.get_all_records()
-        
-        # Process records and add missing titles
+
+        query = "SELECT * FROM c"
+        raw_items = list(container.query_items(query=query, enable_cross_partition_query=True))
+
         items = []
-        for record in records:
-            # Check for title in the correct column name
-            title_field = 'Item Title (if not entered, website will try to make one)'
-            if not record.get(title_field) and record.get('URL'):
-                record[title_field] = scrape_title_from_url(record['URL'])
-            
-            # Convert price to float for sorting
+        for item in raw_items:
+            # Scrape title if missing
+            if not item.get('title') and item.get('url'):
+                item['title'] = scrape_title_from_url(item['url'])
+
+            # Ensure numeric types
             try:
-                record['Price'] = float(record.get('Price', 0)) if record.get('Price') else 0
+                item['price'] = float(item.get('price', 0)) if item.get('price') else 0
             except (ValueError, TypeError):
-                record['Price'] = 0
-            
-            # Convert priority to int for sorting
+                item['price'] = 0
             try:
-                record['Priority'] = int(record.get('Priority', 0)) if record.get('Priority') else 0
+                item['priority'] = int(item.get('priority', 0)) if item.get('priority') else 0
             except (ValueError, TypeError):
-                record['Priority'] = 0
-            
-            items.append(record)
-        
+                item['priority'] = 0
+
+            items.append(item)
+
         # Sort by priority (higher first), then by price
-        items.sort(key=lambda x: (-x['Priority'], x['Price']))
-        
+        items.sort(key=lambda x: (-x['priority'], x['price']))
+
         return render_template('registry.html', items=items)
-    
+
     except Exception as e:
         app.logger.error(f"Error loading registry: {e}")
         flash('Unable to load registry at this time. Please try again later.', 'error')
@@ -384,84 +463,211 @@ https://menkevaccawedding.azurewebsites.net
 def purchase_item():
     """Handle item purchase form submission"""
     app.logger.info("🛒 Purchase item request received")
-    
+
     try:
         data = request.get_json()
         app.logger.info(f"📦 Purchase data received: {data}")
-        
+
         # Validate required fields
-        required_fields = ['name', 'purchase_date', 'item_title', 'item_url']
+        required_fields = ['name', 'purchase_date', 'item_title', 'item_id']
         for field in required_fields:
             if not data.get(field):
                 app.logger.error(f"❌ Missing required field: {field}")
                 return jsonify({'error': f'Missing required field: {field}'}), 400
-        
-        # Optional fields
-        delivery_date = data.get('delivery_date', '')
-        note = data.get('note', '')
-        
+
         app.logger.info("✅ All required fields present")
-        if delivery_date:
-            app.logger.info(f"📅 Delivery date: {delivery_date}")
-        if note:
-            app.logger.info(f"💬 Note provided: {note[:50]}...")
-        
-        # Update Google Sheet
-        app.logger.info("🔄 Connecting to Google Sheets...")
-        client = get_google_sheets_client()
-        if not client:
-            app.logger.error("❌ Unable to connect to Google Sheets")
+
+        # Update Cosmos DB
+        container = get_cosmos_container()
+        if not container:
+            app.logger.error("❌ Unable to connect to Cosmos DB")
             return jsonify({'error': 'Unable to connect to registry system'}), 500
-        
-        app.logger.info("✅ Connected to Google Sheets, updating records...")
-        sheet = client.open_by_key(SPREADSHEET_ID).sheet1
-        records = sheet.get_all_records()
-        
-        # Find the row to update
-        row_index = None
-        for i, record in enumerate(records):
-            if record.get('URL') == data['item_url']:
-                row_index = i + 2  # +2 because sheets are 1-indexed and have header row
-                break
-        
-        if row_index:
-            app.logger.info(f"📝 Updating row {row_index} in Google Sheets...")
-            # Update the "Bought?" and "Bought by" columns (columns 6 and 8)
-            # Column order: Timestamp, URL, Priority, Image URL, Price, Bought?, Item Title, Bought by
-            sheet.update_cell(row_index, 6, 'Yes')  # Column 6 is "Bought?"
-            sheet.update_cell(row_index, 8, data['name'])  # Column 8 is "Bought by"
-            app.logger.info("✅ Google Sheets updated successfully")
-        else:
-            app.logger.warning(f"⚠️ Could not find row for URL: {data['item_url']}")
-        
-        # Send email notification using Azure or SMTP fallback
+
         try:
-            app.logger.info(f"🔔 Attempting to send email notification for: {data['item_title']}")
-            # Prepare complete data for email
+            item = container.read_item(item=data['item_id'], partition_key=data['item_id'])
+            item['bought'] = True
+            item['bought_by'] = data['name']
+            container.replace_item(item=item['id'], body=item)
+            app.logger.info("✅ Cosmos DB updated successfully")
+        except Exception as e:
+            app.logger.warning(f"⚠️ Could not update item {data['item_id']}: {e}")
+
+        # Send email notification
+        try:
             email_data = {
                 'item_title': data['item_title'],
                 'name': data['name'],
                 'purchase_date': data['purchase_date'],
-                'item_url': data['item_url'],
+                'item_url': data.get('item_url', ''),
                 'delivery_date': data.get('delivery_date', ''),
                 'note': data.get('note', '')
             }
             email_sent = send_registry_notification_email(email_data)
             if email_sent:
-                app.logger.info(f"✅ Email notification sent successfully for purchase: {data['item_title']}")
+                app.logger.info(f"✅ Email notification sent for: {data['item_title']}")
             else:
-                app.logger.warning(f"⚠️ Email not sent - purchase recorded: {data['item_title']} by {data['name']}")
+                app.logger.warning(f"⚠️ Email not sent - purchase recorded: {data['item_title']}")
         except Exception as e:
             app.logger.error(f"❌ Error sending email: {e}")
-            # Don't fail the request if email fails
-        
-        app.logger.info("🎉 Purchase process completed successfully")
+
         return jsonify({'success': True, 'message': 'Thank you for your purchase!'})
-    
+
     except Exception as e:
         app.logger.error(f"❌ Error processing purchase: {e}")
-        app.logger.error(f"🔍 Exception type: {type(e).__name__}")
         return jsonify({'error': 'An error occurred processing your purchase'}), 500
+
+
+# --- Registry Admin Routes (direct access only, no nav link) ---
+
+@app.route('/registry/admin')
+def registry_admin():
+    """Admin page for managing registry items"""
+    try:
+        container = get_cosmos_container()
+        items = []
+        if container:
+            query = "SELECT * FROM c ORDER BY c.priority DESC"
+            items = list(container.query_items(query=query, enable_cross_partition_query=True))
+        return render_template('registry_admin.html', items=items)
+    except Exception as e:
+        app.logger.error(f"Error loading admin page: {e}")
+        return render_template('registry_admin.html', items=[])
+
+
+@app.route('/registry/admin/add', methods=['POST'])
+def registry_admin_add():
+    """Add a new registry item"""
+    try:
+        container = get_cosmos_container()
+        if not container:
+            return jsonify({'error': 'Unable to connect to database'}), 500
+
+        data = request.get_json()
+        item = {
+            'id': str(uuid.uuid4()),
+            'url': data.get('url', ''),
+            'priority': int(data.get('priority', 0)),
+            'image_url': data.get('image_url', ''),
+            'price': float(data.get('price', 0)),
+            'bought': False,
+            'title': data.get('title', ''),
+            'bought_by': ''
+        }
+
+        # Auto-scrape title if not provided
+        if not item['title'] and item['url']:
+            item['title'] = scrape_title_from_url(item['url'])
+
+        container.create_item(body=item)
+        return jsonify({'success': True, 'item': item})
+
+    except Exception as e:
+        app.logger.error(f"Error adding item: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/registry/admin/delete', methods=['POST'])
+def registry_admin_delete():
+    """Delete a registry item"""
+    try:
+        container = get_cosmos_container()
+        if not container:
+            return jsonify({'error': 'Unable to connect to database'}), 500
+
+        data = request.get_json()
+        item_id = data.get('id')
+        if not item_id:
+            return jsonify({'error': 'Item ID required'}), 400
+
+        container.delete_item(item=item_id, partition_key=item_id)
+        return jsonify({'success': True})
+
+    except Exception as e:
+        app.logger.error(f"Error deleting item: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/registry/admin/edit', methods=['POST'])
+def registry_admin_edit():
+    """Edit a registry item"""
+    try:
+        container = get_cosmos_container()
+        if not container:
+            return jsonify({'error': 'Unable to connect to database'}), 500
+
+        data = request.get_json()
+        item_id = data.get('id')
+        if not item_id:
+            return jsonify({'error': 'Item ID required'}), 400
+
+        item = container.read_item(item=item_id, partition_key=item_id)
+        # Update only provided fields
+        for field in ['url', 'title', 'image_url']:
+            if field in data:
+                item[field] = data[field]
+        if 'priority' in data:
+            item['priority'] = int(data['priority'])
+        if 'price' in data:
+            item['price'] = float(data['price'])
+        if 'bought' in data:
+            item['bought'] = bool(data['bought'])
+        if 'bought_by' in data:
+            item['bought_by'] = data['bought_by']
+
+        container.replace_item(item=item_id, body=item)
+        return jsonify({'success': True, 'item': item})
+
+    except Exception as e:
+        app.logger.error(f"Error editing item: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/registry/admin/autofill', methods=['POST'])
+def registry_admin_autofill():
+    """Auto-fill product fields from URL using OG tags, then AI fallback."""
+    data = request.get_json()
+    url = data.get('url', '').strip()
+    if not url:
+        return jsonify({'error': 'URL is required'}), 400
+
+    # Step 1: OG / HTML scraping
+    result = scrape_product_metadata(url)
+    source = 'scrape'
+
+    # Step 2: If we're missing key fields, try AI
+    missing_title = not result.get('title')
+    missing_image = not result.get('image_url')
+    missing_price = not result.get('price')
+
+    if missing_title or (missing_image and missing_price):
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                              '(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            resp = requests.get(url, headers=headers, timeout=10)
+            html_snippet = resp.text
+        except Exception:
+            html_snippet = ''
+
+        if html_snippet:
+            ai_result = ai_extract_product_info(url, html_snippet)
+            if ai_result:
+                source = 'ai'
+                # Fill in only what's missing
+                if missing_title and ai_result.get('title'):
+                    result['title'] = ai_result['title']
+                if missing_image and ai_result.get('image_url'):
+                    result['image_url'] = ai_result['image_url']
+                if missing_price and ai_result.get('price'):
+                    try:
+                        result['price'] = float(ai_result['price'])
+                    except (ValueError, TypeError):
+                        pass
+
+    result['source'] = source
+    return jsonify(result)
+
 
 @app.errorhandler(404)
 def not_found(error):

@@ -51,8 +51,15 @@
                         <strong>RSVPs coming soon!</strong> We'll share the link when it's ready.
                     </div>
                     <div class="mt-3">
-                        <a href="{{ url_for('venue') }}" class="btn btn-light btn-lg me-3">See Our Venue</a>
-                        <a href="{{ url_for('registry') }}" class="btn btn-outline-light btn-lg">View Registry</a>
+                        <a href="https://book.passkey.com/e/51185846" target="_blank" rel="noopener noreferrer" class="btn btn-light btn-lg me-3">
+                            <i class="fas fa-hotel me-2"></i>Book a Room
+                        </a>
+                        <a href="{{ url_for('venue') }}" class="btn btn-outline-light btn-lg me-3">
+                            <i class="fas fa-map-marker-alt me-2"></i>See Our Venue
+                        </a>
+                        <a href="{{ url_for('registry') }}" class="btn btn-outline-light btn-lg">
+                            <i class="fas fa-gift me-2"></i>View Registry
+                        </a>
                     </div>
                 </div>
             </div>
@@ -107,49 +114,17 @@
 </section>
 
 <!-- Our Story Section -->
-<section class="section-padding">
+<section class="section-padding" style="background: linear-gradient(135deg, var(--secondary-color) 0%, var(--accent-color) 100%);">
     <div class="container">
-        <div class="row align-items-center">
-            <div class="col-lg-6">
-                <h2 class="section-title text-start">Our Love Story</h2>
+        <div class="row justify-content-center">
+            <div class="col-lg-8 text-center">
+                <h2 class="section-title">Our Love Story</h2>
                 <p class="lead">Every love story is beautiful, but ours is our favorite.</p>
                 <p>From the moment we met on a Tinder date in October 2017, we knew something special was beginning. Through PA school, MBA school, and a cross-country move to Arizona, we've grown together and discovered that we truly are better together.</p>
                 <p>Brandon proposed in June 2025 in Davenport, IA, outside of where they had their first date many years ago. Now we're ready to take the next step in our journey!</p>
                 <a href="{{ url_for('timeline') }}" class="btn btn-primary">
                     <i class="fas fa-book me-2"></i>Read Our Full Story
                 </a>
-            </div>
-            <div class="col-lg-6">
-                <div class="card">
-                    <div class="card-body text-center p-5">
-                        <i class="fas fa-infinity fa-4x text-primary mb-4"></i>
-                        <h3 class="serif-font">Forever & Always</h3>
-                        <p class="text-muted">Two hearts, one love, endless possibilities</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- Call to Action Section -->
-<section class="section-padding" style="background: linear-gradient(135deg, var(--secondary-color) 0%, var(--accent-color) 100%);">
-    <div class="container text-center">
-        <div class="row justify-content-center">
-            <div class="col-lg-8">
-                <h2 class="section-title">Join Our Celebration</h2>
-                <p class="lead">We can't wait to celebrate with you on New Year's Day 2027! Please check back soon for RSVP information.</p>
-                <div class="mt-4">
-                    <a href="{{ url_for('venue') }}" class="btn btn-primary btn-lg me-3">
-                        <i class="fas fa-map-marker-alt me-2"></i>See Our Venue
-                    </a>
-                    <a href="{{ url_for('timeline') }}" class="btn btn-outline-primary btn-lg me-3">
-                        <i class="fas fa-book me-2"></i>Our Story
-                    </a>
-                    <a href="{{ url_for('registry') }}" class="btn btn-outline-primary btn-lg">
-                        <i class="fas fa-gift me-2"></i>View Registry
-                    </a>
-                </div>
             </div>
         </div>
     </div>
