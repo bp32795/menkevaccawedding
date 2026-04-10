@@ -38,6 +38,13 @@ except ImportError:
     OPENAI_AVAILABLE = False
     print("OpenAI not available. AI autofill disabled.")
 
+# Try to import Azure Identity for managed identity auth
+try:
+    from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+    IDENTITY_AVAILABLE = True
+except ImportError:
+    IDENTITY_AVAILABLE = False
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -201,16 +208,31 @@ def ai_extract_product_info(url, html_snippet):
     key = os.environ.get('AZURE_OPENAI_KEY')
     deployment = os.environ.get('AZURE_OPENAI_DEPLOYMENT', 'gpt-4o-mini')
 
-    if not endpoint or not key:
+    if not endpoint:
         app.logger.info("Azure OpenAI not configured, skipping AI autofill")
         return {}
 
     try:
-        client = AzureOpenAI(
-            azure_endpoint=endpoint,
-            api_key=key,
-            api_version="2024-10-21"
-        )
+        # Prefer managed identity; fall back to API key for local dev
+        if IDENTITY_AVAILABLE and not key:
+            credential = DefaultAzureCredential()
+            token_provider = get_bearer_token_provider(
+                credential, "https://cognitiveservices.azure.com/.default"
+            )
+            client = AzureOpenAI(
+                azure_endpoint=endpoint,
+                azure_ad_token_provider=token_provider,
+                api_version="2024-10-21"
+            )
+        elif key:
+            client = AzureOpenAI(
+                azure_endpoint=endpoint,
+                api_key=key,
+                api_version="2024-10-21"
+            )
+        else:
+            app.logger.info("No Azure OpenAI credentials available")
+            return {}
 
         # Trim HTML to a reasonable size
         trimmed = html_snippet[:8000]

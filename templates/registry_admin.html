@@ -225,8 +225,14 @@ async function runAutofill() {
     autofillBtn.disabled = true;
     autofillBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Fetching...';
     autofillStatus.style.display = 'block';
-    autofillStatus.innerHTML = '<i class="fas fa-search me-2"></i>Scraping product page...';
+    autofillStatus.innerHTML = '<i class="fas fa-search me-2"></i>Scraping product page for metadata...';
     autofillStatus.className = 'autofill-status mb-3 text-info';
+
+    // Show a progress timeout — if the request takes >3s, it likely fell back to AI
+    const aiHint = setTimeout(() => {
+        autofillStatus.innerHTML = '<i class="fas fa-robot me-2"></i>Page metadata incomplete — asking AI to extract product info...';
+        autofillBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>AI analyzing...';
+    }, 3000);
 
     try {
         const response = await fetch('/registry/admin/autofill', {
@@ -234,6 +240,7 @@ async function runAutofill() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url })
         });
+        clearTimeout(aiHint);
         const result = await response.json();
 
         if (!response.ok) {
@@ -251,13 +258,15 @@ async function runAutofill() {
         // Enable detail fields
         detailFields.classList.remove('disabled');
 
-        // Status message
-        const sourceLabel = result.source === 'ai' ? 'AI' : 'page metadata';
+        // Status message with source info
+        const sourceLabel = result.source === 'ai' ? 'AI extraction' : 'page metadata';
+        const sourceIcon = result.source === 'ai' ? 'fa-robot' : 'fa-check-circle';
         const filled = [result.title ? 'title' : '', result.price ? 'price' : '', result.image_url ? 'image' : '']
             .filter(Boolean).join(', ');
-        autofillStatus.innerHTML = `<i class="fas fa-check-circle me-2"></i>Found via ${sourceLabel}: ${filled || 'no fields'}. Review and edit below.`;
+        autofillStatus.innerHTML = `<i class="fas ${sourceIcon} me-2"></i>Found via ${sourceLabel}: ${filled || 'no fields'}. Review and edit below.`;
         autofillStatus.className = 'autofill-status mb-3 text-success';
     } catch (error) {
+        clearTimeout(aiHint);
         autofillStatus.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i>${error.message}. You can fill in fields manually.`;
         autofillStatus.className = 'autofill-status mb-3 text-warning';
         detailFields.classList.remove('disabled');
