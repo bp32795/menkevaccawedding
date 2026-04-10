@@ -179,18 +179,18 @@
             {% if items %}
                 {% for item in items %}
                 <div class="col-lg-4 col-md-6 registry-item-container" 
-                     data-priority="{{ item.Priority or 0 }}" 
-                     data-price="{{ item.Price or 0 }}" 
-                     data-name="{{ item['Item Title (if not entered, website will try to make one)'] or 'Product' }}">
-                    <div class="card registry-item h-100 {% if item['Bought?'] == 'Yes' %}bought{% endif %}">
-                        {% if item.Priority and item.Priority > 0 %}
+                     data-priority="{{ item.priority or 0 }}" 
+                     data-price="{{ item.price or 0 }}" 
+                     data-name="{{ item.title or 'Product' }}">
+                    <div class="card registry-item h-100 {% if item.bought %}bought{% endif %}">
+                        {% if item.priority and item.priority > 0 %}
                             <div class="item-priority">
-                                Priority {{ item.Priority }}
+                                Priority {{ item.priority }}
                             </div>
                         {% endif %}
                         
-                        {% if item['Image URL'] %}
-                            <img src="{{ item['Image URL'] }}" class="item-image" alt="{{ item['Item Title (if not entered, website will try to make one)'] or 'Product' }}" 
+                        {% if item.image_url %}
+                            <img src="{{ item.image_url }}" class="item-image" alt="{{ item.title or 'Product' }}" 
                                  onerror="this.src='https://via.placeholder.com/300x250/E8D5B7/8B4B8C?text=No+Image'">
                         {% else %}
                             <div class="item-image d-flex align-items-center justify-content-center" style="background: var(--secondary-color);">
@@ -199,13 +199,13 @@
                         {% endif %}
                         
                         <div class="card-body d-flex flex-column">
-                            <h5 class="card-title serif-font">{{ item['Item Title (if not entered, website will try to make one)'] or 'Product' }}</h5>
+                            <h5 class="card-title serif-font">{{ item.title or 'Product' }}</h5>
                             
-                            {% if item.Price %}
-                                <p class="item-price mb-2">${{ "%.2f"|format(item.Price) }}</p>
+                            {% if item.price %}
+                                <p class="item-price mb-2">${{ "%.2f"|format(item.price) }}</p>
                             {% endif %}
                             
-                            {% if item['Bought?'] == 'Yes' %}
+                            {% if item.bought %}
                                 <div class="mt-auto">
                                     <button class="btn btn-secondary w-100" disabled>
                                         <i class="fas fa-check me-2"></i>Already Purchased
@@ -214,15 +214,16 @@
                             {% else %}
                                 <div class="mt-auto">
                                     <div class="d-grid gap-2">
-                                        {% if item.URL %}
-                                            <a href="{{ item.URL }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                        {% if item.url %}
+                                            <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary btn-sm">
                                                 <i class="fas fa-external-link-alt me-2"></i>View Item
                                             </a>
                                         {% endif %}
                                         <button class="btn btn-purchase purchase-btn" 
-                                                data-title="{{ item['Item Title (if not entered, website will try to make one)'] or 'Product' }}"
-                                                data-url="{{ item.URL or '' }}"
-                                                data-price="{{ item.Price or 0 }}">
+                                                data-id="{{ item.id }}"
+                                                data-title="{{ item.title or 'Product' }}"
+                                                data-url="{{ item.url or '' }}"
+                                                data-price="{{ item.price or 0 }}">
                                             <i class="fas fa-shopping-cart me-2"></i>I Bought This
                                         </button>
                                     </div>
@@ -283,6 +284,7 @@
                         <div class="form-text">This will be included in the notification email to the couple.</div>
                     </div>
                     
+                    <input type="hidden" id="itemId">
                     <input type="hidden" id="itemUrl">
                 </form>
             </div>
@@ -308,10 +310,11 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('click', function(e) {
         if (e.target.closest('.purchase-btn')) {
             const btn = e.target.closest('.purchase-btn');
+            const id = btn.dataset.id;
             const title = btn.dataset.title;
             const url = btn.dataset.url;
             const price = btn.dataset.price;
-            openPurchaseModal(title, url, price);
+            openPurchaseModal(id, title, url, price);
         }
     });
 });
@@ -354,7 +357,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Open purchase modal
-function openPurchaseModal(title, url, price) {
+function openPurchaseModal(id, title, url, price) {
+    document.getElementById('itemId').value = id;
     document.getElementById('itemTitle').textContent = title;
     document.getElementById('itemPrice').textContent = price > 0 ? `$${parseFloat(price).toFixed(2)}` : '';
     document.getElementById('itemUrl').value = url;
@@ -384,6 +388,7 @@ async function submitPurchase() {
         delivery_date: document.getElementById('deliveryDate').value,
         note: document.getElementById('purchaseNote').value,
         item_title: document.getElementById('itemTitle').textContent,
+        item_id: document.getElementById('itemId').value,
         item_url: document.getElementById('itemUrl').value
     };
     

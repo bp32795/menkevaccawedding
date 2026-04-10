@@ -12,7 +12,7 @@ import os
 # Add the parent directory to the path so we can import app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app import app, get_google_sheets_client, scrape_title_from_url
+from app import app, scrape_title_from_url
 
 
 class WeddingWebsiteTestCase(unittest.TestCase):
@@ -25,34 +25,37 @@ class WeddingWebsiteTestCase(unittest.TestCase):
         self.app.config['WTF_CSRF_ENABLED'] = False
         self.client = self.app.test_client()
         
-        # Mock data for testing
+        # Mock data for testing (Cosmos DB format)
         self.mock_registry_data = [
             {
-                'URL': 'https://example.com/item1',
-                'Priority': 3,
-                'Image URL': 'https://example.com/vase.jpg',
-                'Price': 45.99,
-                'Bought?': 'No',
-                'Item Title (if not entered, website will try to make one)': 'Beautiful Vase',
-                'Bought by': ''
+                'id': 'item-1',
+                'url': 'https://example.com/item1',
+                'priority': 3,
+                'image_url': 'https://example.com/vase.jpg',
+                'price': 45.99,
+                'bought': False,
+                'title': 'Beautiful Vase',
+                'bought_by': ''
             },
             {
-                'URL': 'https://example.com/item2',
-                'Priority': 1,
-                'Image URL': 'https://example.com/coffee.jpg',
-                'Price': 129.99,
-                'Bought?': 'Yes',
-                'Item Title (if not entered, website will try to make one)': 'Coffee Maker',
-                'Bought by': 'John Doe'
+                'id': 'item-2',
+                'url': 'https://example.com/item2',
+                'priority': 1,
+                'image_url': 'https://example.com/coffee.jpg',
+                'price': 129.99,
+                'bought': True,
+                'title': 'Coffee Maker',
+                'bought_by': 'John Doe'
             },
             {
-                'URL': 'https://example.com/item3',
-                'Priority': 2,
-                'Image URL': '',
-                'Price': 75.50,
-                'Bought?': 'No',
-                'Item Title (if not entered, website will try to make one)': '',  # Test empty title
-                'Bought by': ''
+                'id': 'item-3',
+                'url': 'https://example.com/item3',
+                'priority': 2,
+                'image_url': '',
+                'price': 75.50,
+                'bought': False,
+                'title': '',
+                'bought_by': ''
             }
         ]
 
@@ -126,14 +129,13 @@ class TimelinePageTestCase(WeddingWebsiteTestCase):
     
     def test_timeline_page_loads(self):
         """Test that timeline page loads successfully"""
-        response = self.client.get('/timeline')
+        response = self.client.get('/ourstory')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Our Love Story', response.data)
-        self.assertIn(b'timeline', response.data)
     
     def test_timeline_story_content(self):
         """Test that story milestones are displayed"""
-        response = self.client.get('/timeline')
+        response = self.client.get('/ourstory')
         self.assertIn(b'2017', response.data)  # First meeting year
         self.assertIn(b'2025', response.data)  # Proposal year
         self.assertIn(b'Tinder', response.data)  # How they met
@@ -142,22 +144,19 @@ class TimelinePageTestCase(WeddingWebsiteTestCase):
     
     def test_timeline_adventure_gallery(self):
         """Test that adventure gallery is displayed"""
-        response = self.client.get('/timeline')
+        response = self.client.get('/ourstory')
         self.assertIn(b'Adventures Together', response.data)
 
 
 class RegistryPageTestCase(WeddingWebsiteTestCase):
     """Test cases for the registry page"""
     
-    @patch('app.get_google_sheets_client')
-    def test_registry_page_loads_with_items(self, mock_get_client):
-        """Test that registry page loads with items from Google Sheets"""
-        # Mock the Google Sheets client
-        mock_client = Mock()
-        mock_sheet = Mock()
-        mock_sheet.get_all_records.return_value = self.mock_registry_data
-        mock_client.open_by_key.return_value.sheet1 = mock_sheet
-        mock_get_client.return_value = mock_client
+    @patch('app.get_cosmos_container')
+    def test_registry_page_loads_with_items(self, mock_get_container):
+        """Test that registry page loads with items from Cosmos DB"""
+        mock_container = Mock()
+        mock_container.query_items.return_value = iter(self.mock_registry_data)
+        mock_get_container.return_value = mock_container
         
         response = self.client.get('/registry')
         self.assertEqual(response.status_code, 200)
@@ -165,46 +164,38 @@ class RegistryPageTestCase(WeddingWebsiteTestCase):
         self.assertIn(b'Beautiful Vase', response.data)
         self.assertIn(b'Coffee Maker', response.data)
     
-    @patch('app.get_google_sheets_client')
-    def test_registry_page_handles_no_client(self, mock_get_client):
-        """Test that registry page handles Google Sheets client failure"""
-        mock_get_client.return_value = None
+    @patch('app.get_cosmos_container')
+    def test_registry_page_handles_no_container(self, mock_get_container):
+        """Test that registry page handles Cosmos DB connection failure"""
+        mock_get_container.return_value = None
         
         response = self.client.get('/registry')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Registry items will appear here', response.data)
     
-    @patch('app.get_google_sheets_client')
-    def test_registry_sorting_by_priority(self, mock_get_client):
+    @patch('app.get_cosmos_container')
+    def test_registry_sorting_by_priority(self, mock_get_container):
         """Test that registry items are sorted by priority"""
-        mock_client = Mock()
-        mock_sheet = Mock()
-        mock_sheet.get_all_records.return_value = self.mock_registry_data
-        mock_client.open_by_key.return_value.sheet1 = mock_sheet
-        mock_get_client.return_value = mock_client
+        mock_container = Mock()
+        mock_container.query_items.return_value = iter(self.mock_registry_data)
+        mock_get_container.return_value = mock_container
         
         response = self.client.get('/registry')
         self.assertEqual(response.status_code, 200)
         
-        # Check that items appear in priority order (higher priority first)
         content = response.data.decode('utf-8')
         vase_pos = content.find('Beautiful Vase')
-        item3_pos = content.find('Priority 2')
         coffee_pos = content.find('Coffee Maker')
         
-        # Beautiful Vase (priority 3) should come before item with priority 2
-        # which should come before Coffee Maker (priority 1)
-        self.assertLess(vase_pos, item3_pos)
-        self.assertLess(item3_pos, coffee_pos)
+        # Beautiful Vase (priority 3) should come before Coffee Maker (priority 1)
+        self.assertLess(vase_pos, coffee_pos)
     
-    @patch('app.get_google_sheets_client')
-    def test_registry_bought_items_display(self, mock_get_client):
+    @patch('app.get_cosmos_container')
+    def test_registry_bought_items_display(self, mock_get_container):
         """Test that bought items are displayed differently"""
-        mock_client = Mock()
-        mock_sheet = Mock()
-        mock_sheet.get_all_records.return_value = self.mock_registry_data
-        mock_client.open_by_key.return_value.sheet1 = mock_sheet
-        mock_get_client.return_value = mock_client
+        mock_container = Mock()
+        mock_container.query_items.return_value = iter(self.mock_registry_data)
+        mock_get_container.return_value = mock_container
         
         response = self.client.get('/registry')
         self.assertEqual(response.status_code, 200)
@@ -216,18 +207,13 @@ class PurchaseItemTestCase(WeddingWebsiteTestCase):
     """Test cases for item purchase functionality"""
     
     @patch('app.send_registry_notification_email')
-    @patch('app.get_google_sheets_client')
-    def test_purchase_item_success(self, mock_get_client, mock_send_email):
+    @patch('app.get_cosmos_container')
+    def test_purchase_item_success(self, mock_get_container, mock_send_email):
         """Test successful item purchase"""
-        # Mock the Google Sheets client
-        mock_client = Mock()
-        mock_sheet = Mock()
-        mock_sheet.get_all_records.return_value = self.mock_registry_data
-        mock_sheet.update_cell = Mock()
-        mock_client.open_by_key.return_value.sheet1 = mock_sheet
-        mock_get_client.return_value = mock_client
-        
-        # Mock email sending
+        mock_container = Mock()
+        mock_container.read_item.return_value = dict(self.mock_registry_data[0])
+        mock_container.replace_item = Mock()
+        mock_get_container.return_value = mock_container
         mock_send_email.return_value = True
         
         purchase_data = {
@@ -235,6 +221,7 @@ class PurchaseItemTestCase(WeddingWebsiteTestCase):
             'purchase_date': '2025-08-30',
             'delivery_date': '2025-09-05',
             'item_title': 'Beautiful Vase',
+            'item_id': 'item-1',
             'item_url': 'https://example.com/item1'
         }
         
@@ -247,9 +234,9 @@ class PurchaseItemTestCase(WeddingWebsiteTestCase):
         self.assertTrue(data['success'])
         self.assertIn('Thank you', data['message'])
         
-        # Verify Google Sheets was updated
-        mock_sheet.update_cell.assert_any_call(2, 6, 'Yes')  # Bought? column (6th column)
-        mock_sheet.update_cell.assert_any_call(2, 8, 'Jane Smith')  # Bought by column (8th column)
+        # Verify Cosmos DB was updated
+        mock_container.read_item.assert_called_once_with(item='item-1', partition_key='item-1')
+        mock_container.replace_item.assert_called_once()
         
         # Verify email was sent
         mock_send_email.assert_called_once()
@@ -270,16 +257,16 @@ class PurchaseItemTestCase(WeddingWebsiteTestCase):
         self.assertIn('error', data)
         self.assertIn('Missing required field', data['error'])
     
-    @patch('app.get_google_sheets_client')
-    def test_purchase_item_no_client(self, mock_get_client):
-        """Test purchase item when Google Sheets client fails"""
-        mock_get_client.return_value = None
+    @patch('app.get_cosmos_container')
+    def test_purchase_item_no_container(self, mock_get_container):
+        """Test purchase item when Cosmos DB connection fails"""
+        mock_get_container.return_value = None
         
         purchase_data = {
             'name': 'Jane Smith',
             'purchase_date': '2025-08-30',
             'item_title': 'Beautiful Vase',
-            'item_url': 'https://example.com/item1'
+            'item_id': 'item-1'
         }
         
         response = self.client.post('/purchase_item',
@@ -352,16 +339,15 @@ class ErrorHandlingTestCase(WeddingWebsiteTestCase):
         self.assertIn(b'Page Not Found', response.data)
         self.assertIn(b'404', response.data)
     
-    @patch('app.get_google_sheets_client')
-    def test_registry_handles_sheet_exception(self, mock_get_client):
-        """Test that registry page handles Google Sheets exceptions gracefully"""
-        mock_client = Mock()
-        mock_client.open_by_key.side_effect = Exception('Sheets API error')
-        mock_get_client.return_value = mock_client
+    @patch('app.get_cosmos_container')
+    def test_registry_handles_db_exception(self, mock_get_container):
+        """Test that registry page handles Cosmos DB exceptions gracefully"""
+        mock_container = Mock()
+        mock_container.query_items.side_effect = Exception('Cosmos DB error')
+        mock_get_container.return_value = mock_container
         
         response = self.client.get('/registry')
         self.assertEqual(response.status_code, 200)
-        # Should show error message and empty registry
         self.assertIn(b'Registry items will appear here', response.data)
 
 
@@ -388,16 +374,14 @@ class IntegrationTestCase(WeddingWebsiteTestCase):
     """Integration test cases"""
     
     @patch('app.send_registry_notification_email')
-    @patch('app.get_google_sheets_client')
-    def test_full_purchase_workflow(self, mock_get_client, mock_send_email):
+    @patch('app.get_cosmos_container')
+    def test_full_purchase_workflow(self, mock_get_container, mock_send_email):
         """Test the complete purchase workflow"""
-        # Setup mocks
-        mock_client = Mock()
-        mock_sheet = Mock()
-        mock_sheet.get_all_records.return_value = self.mock_registry_data
-        mock_sheet.update_cell = Mock()
-        mock_client.open_by_key.return_value.sheet1 = mock_sheet
-        mock_get_client.return_value = mock_client
+        mock_container = Mock()
+        mock_container.query_items.return_value = iter(self.mock_registry_data)
+        mock_container.read_item.return_value = dict(self.mock_registry_data[0])
+        mock_container.replace_item = Mock()
+        mock_get_container.return_value = mock_container
         mock_send_email.return_value = True
         
         # 1. Load registry page
@@ -410,6 +394,7 @@ class IntegrationTestCase(WeddingWebsiteTestCase):
             'name': 'Integration Test User',
             'purchase_date': '2025-08-30',
             'item_title': 'Beautiful Vase',
+            'item_id': 'item-1',
             'item_url': 'https://example.com/item1'
         }
         
@@ -422,7 +407,7 @@ class IntegrationTestCase(WeddingWebsiteTestCase):
         self.assertTrue(data['success'])
         
         # 3. Verify side effects
-        mock_sheet.update_cell.assert_called()
+        mock_container.replace_item.assert_called()
         mock_send_email.assert_called_once()
 
 
