@@ -36,6 +36,9 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2023-01-01' = {
 resource webApp 'Microsoft.Web/sites@2023-01-01' = {
   name: baseName
   location: location
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     serverFarmId: appServicePlan.id
     siteConfig: {
@@ -49,11 +52,24 @@ resource webApp 'Microsoft.Web/sites@2023-01-01' = {
         { name: 'COSMOS_DATABASE', value: 'wedding' }
         { name: 'COSMOS_CONTAINER', value: 'registry' }
         { name: 'AZURE_OPENAI_ENDPOINT', value: openAiAccount.properties.endpoint }
-        { name: 'AZURE_OPENAI_KEY', value: openAiAccount.listKeys().key1 }
         { name: 'AZURE_OPENAI_DEPLOYMENT', value: openAiDeploymentName }
       ]
     }
     httpsOnly: true
+  }
+}
+
+// RBAC: Grant the web app "Cognitive Services OpenAI User" on the OpenAI account
+@description('Built-in Cognitive Services OpenAI User role')
+var cognitiveServicesOpenAIUserRoleId = '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
+
+resource openAiRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(openAiAccount.id, webApp.id, cognitiveServicesOpenAIUserRoleId)
+  scope: openAiAccount
+  properties: {
+    principalId: webApp.identity.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', cognitiveServicesOpenAIUserRoleId)
+    principalType: 'ServicePrincipal'
   }
 }
 
@@ -121,6 +137,7 @@ resource openAiAccount 'Microsoft.CognitiveServices/accounts@2024-04-01-preview'
   properties: {
     publicNetworkAccess: 'Enabled'
     customSubDomainName: 'oai-${baseName}'
+    disableLocalAuth: true
   }
 }
 
@@ -128,14 +145,14 @@ resource openAiDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024
   parent: openAiAccount
   name: openAiDeploymentName
   sku: {
-    name: 'GlobalStandard'
+    name: 'Standard'
     capacity: 10 // 10K tokens per minute — plenty for registry autofill
   }
   properties: {
     model: {
       format: 'OpenAI'
-      name: 'gpt-4o-mini'
-      version: '2024-07-18'
+      name: 'gpt-4.1-mini'
+      version: '2025-04-14'
     }
   }
 }
