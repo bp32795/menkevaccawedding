@@ -369,7 +369,7 @@
 
 <style>
 .timeline-hero {
-    background: linear-gradient(135deg, var(--light-bg) 0%, #f8f9fa 100%);
+    background: linear-gradient(135deg, var(--light-bg) 0%, #f8f5f5 100%);
 }
 
 .hero-title {
@@ -428,7 +428,7 @@
 }
 
 .proposal-marker {
-    background: linear-gradient(45deg, var(--accent-color), #FFD700);
+    background: linear-gradient(45deg, var(--accent-color), #944d59);
     box-shadow: 0 0 0 8px white, 0 0 0 12px var(--accent-color);
     animation: pulse 2s infinite;
     z-index: 15;
@@ -570,5 +570,80 @@
         max-height: 150px;
     }
 }
+
+/* Lightbox */
+.lightbox-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 10000;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+}
+
+.lightbox-overlay.active {
+    display: flex;
+}
+
+.lightbox-overlay img {
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+}
+
+.lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+    color: white;
+    font-size: 2rem;
+    cursor: pointer;
+    z-index: 10001;
+}
+
+.timeline-image img,
+.timeline-images-side-by-side img {
+    cursor: pointer;
+}
 </style>
+
+<!-- Lightbox -->
+<div class="lightbox-overlay" id="lightbox">
+    <span class="lightbox-close">&times;</span>
+    <img id="lightbox-img" src="" alt="Enlarged photo">
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
+
+    document.querySelectorAll('.timeline-image img, .timeline-images-side-by-side img').forEach(img => {
+        img.addEventListener('click', () => {
+            lightboxImg.src = img.src;
+            lightboxImg.alt = img.alt;
+            lightbox.classList.add('active');
+        });
+    });
+
+    lightbox.addEventListener('click', () => {
+        lightbox.classList.remove('active');
+        lightboxImg.src = '';
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            lightbox.classList.remove('active');
+            lightboxImg.src = '';
+        }
+    });
+</script>
 {% endblock %}
