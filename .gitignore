@@ -68,4 +68,5 @@ instance/
 *.tmp
 *.temp
 *.example
-*.env*models.json
+*.env*
+models.json
