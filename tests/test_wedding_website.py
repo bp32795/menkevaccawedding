@@ -68,7 +68,7 @@ class HomePageTestCase(WeddingWebsiteTestCase):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Menke & Vacca', response.data)
-        self.assertIn(b'Together forever', response.data)
+        self.assertIn(b'Sofia Vacca', response.data)
     
     def test_home_page_navigation_links(self):
         """Test that navigation links are present"""
