@@ -259,12 +259,17 @@ async function runAutofill() {
         detailFields.classList.remove('disabled');
 
         // Status message with source info
-        const sourceLabel = result.source === 'ai' ? 'AI extraction' : 'page metadata';
-        const sourceIcon = result.source === 'ai' ? 'fa-robot' : 'fa-check-circle';
-        const filled = [result.title ? 'title' : '', result.price ? 'price' : '', result.image_url ? 'image' : '']
-            .filter(Boolean).join(', ');
-        autofillStatus.innerHTML = `<i class="fas ${sourceIcon} me-2"></i>Found via ${sourceLabel}: ${filled || 'no fields'}. Review and edit below.`;
-        autofillStatus.className = 'autofill-status mb-3 text-success';
+        if (result.source === 'blocked') {
+            autofillStatus.innerHTML = `<i class="fas fa-ban me-2"></i>${result.warning || 'This site blocked automated access.'} Fill in details manually.`;
+            autofillStatus.className = 'autofill-status mb-3 text-warning';
+        } else {
+            const sourceLabel = result.source === 'ai' ? 'AI extraction' : 'page metadata';
+            const sourceIcon = result.source === 'ai' ? 'fa-robot' : 'fa-check-circle';
+            const filled = [result.title ? 'title' : '', result.price ? 'price' : '', result.image_url ? 'image' : '']
+                .filter(Boolean).join(', ');
+            autofillStatus.innerHTML = `<i class="fas ${sourceIcon} me-2"></i>Found via ${sourceLabel}: ${filled || 'no fields'}. Review and edit below.`;
+            autofillStatus.className = 'autofill-status mb-3 text-success';
+        }
     } catch (error) {
         clearTimeout(aiHint);
         autofillStatus.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i>${error.message}. You can fill in fields manually.`;

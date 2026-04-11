@@ -146,9 +146,21 @@ def scrape_product_metadata(url):
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-                          '(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                          '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Cache-Control': 'no-cache',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Upgrade-Insecure-Requests': '1',
         }
         resp = requests.get(url, headers=headers, timeout=10)
+        if resp.status_code == 403:
+            result['warning'] = f'Site blocked automated access (HTTP 403). You may need to fill in details manually.'
+            return result
         resp.raise_for_status()
         soup = BeautifulSoup(resp.content, 'html.parser')
 
@@ -656,6 +668,11 @@ def registry_admin_autofill():
     result = scrape_product_metadata(url)
     source = 'scrape'
 
+    # If the site blocked us, return early with the warning
+    if result.get('warning'):
+        result['source'] = 'blocked'
+        return jsonify(result)
+
     # Step 2: If we're missing key fields, try AI
     missing_title = not result.get('title')
     missing_image = not result.get('image_url')
@@ -665,7 +682,16 @@ def registry_admin_autofill():
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-                              '(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                              '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Cache-Control': 'no-cache',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Upgrade-Insecure-Requests': '1',
             }
             resp = requests.get(url, headers=headers, timeout=10)
             html_snippet = resp.text
