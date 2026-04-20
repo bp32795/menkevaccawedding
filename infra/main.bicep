@@ -17,6 +17,9 @@ param cosmosFreeTier bool = true
 @description('Azure OpenAI model deployment name')
 param openAiDeploymentName string = 'gpt-4o-mini'
 
+@description('Custom domain name (requires DNS CNAME/A record pointing to the App Service). Leave empty to skip.')
+param customDomainName string = ''
+
 // ──────────────────────────────────────────────
 // App Service Plan + Web App
 // ──────────────────────────────────────────────
@@ -170,6 +173,30 @@ resource commServices 'Microsoft.Communication/communicationServices@2023-04-01'
 }
 
 // ──────────────────────────────────────────────
+// Custom Domain & Managed SSL Certificate
+// Prerequisites: DNS CNAME record pointing customDomainName → ${baseName}.azurewebsites.net
+// After deployment, run the SSL binding command from the 'sslBindCommand' output.
+// ──────────────────────────────────────────────
+
+resource customHostnameBinding 'Microsoft.Web/sites/hostNameBindings@2023-01-01' = if (!empty(customDomainName)) {
+  parent: webApp
+  name: !empty(customDomainName) ? customDomainName : 'placeholder'
+  properties: {}
+}
+
+resource managedCertificate 'Microsoft.Web/certificates@2023-01-01' = if (!empty(customDomainName)) {
+  name: '${baseName}-${!empty(customDomainName) ? replace(customDomainName, '.', '-') : 'nocert'}'
+  location: location
+  properties: {
+    serverFarmId: appServicePlan.id
+    canonicalName: !empty(customDomainName) ? customDomainName : ''
+  }
+  dependsOn: [
+    customHostnameBinding
+  ]
+}
+
+// ──────────────────────────────────────────────
 // Outputs
 // ──────────────────────────────────────────────
 
@@ -177,3 +204,5 @@ output webAppUrl string = 'https://${webApp.properties.defaultHostName}'
 output cosmosEndpoint string = cosmosAccount.properties.documentEndpoint
 output openAiEndpoint string = openAiAccount.properties.endpoint
 output commServicesName string = commServices.name
+output certThumbprint string = !empty(customDomainName) ? managedCertificate!.properties.thumbprint : ''
+output sslBindCommand string = !empty(customDomainName) ? 'az webapp config ssl bind --certificate-thumbprint ${managedCertificate!.properties.thumbprint} --ssl-type SNI -n ${baseName} -g <resource-group>' : 'No custom domain configured'

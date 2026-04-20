@@ -6,6 +6,7 @@
     "baseName": { "value": "menkevaccawedding" },
     "appServiceSku": { "value": "B1" },
     "cosmosFreeTier": { "value": true },
-    "openAiDeploymentName": { "value": "gpt-4o-mini" }
+    "openAiDeploymentName": { "value": "gpt-4o-mini" },
+    "customDomainName": { "value": "menkevaccawedding.com" }
   }
 }
