@@ -75,6 +75,25 @@ Write-Host "   Email Provider: SendGrid" -ForegroundColor White
 Write-Host "   HTTPS Only: Enabled" -ForegroundColor White
 Write-Host "   Google Sheets: Configured" -ForegroundColor White
 Write-Host ""
+
+# Bind SSL certificate for custom domain if managed cert exists
+Write-Host "🔐 Checking for managed SSL certificate..." -ForegroundColor Blue
+$certs = az webapp config ssl list --resource-group $ResourceGroup 2>$null | ConvertFrom-Json
+$managedCert = $certs | Where-Object { $_.subjectName -eq "menkevaccawedding.com" } | Select-Object -First 1
+if ($managedCert) {
+    Write-Host "   Found managed certificate, binding SSL..." -ForegroundColor Green
+    az webapp config ssl bind `
+        --certificate-thumbprint $managedCert.thumbprint `
+        --ssl-type SNI `
+        --resource-group $ResourceGroup `
+        --name $AppName
+    Write-Host "   ✅ SSL certificate bound to custom domain" -ForegroundColor Green
+} else {
+    Write-Host "   ⚠️  No managed certificate found for menkevaccawedding.com" -ForegroundColor Yellow
+    Write-Host "   Run the Bicep deployment with customDomainName parameter first, then re-run this script." -ForegroundColor Yellow
+}
+
+Write-Host ""
 Write-Host "🚀 Next Steps:" -ForegroundColor Yellow
 Write-Host "1. Push your code to GitHub to trigger deployment" -ForegroundColor White
 Write-Host "2. Configure custom domain (optional):" -ForegroundColor White
