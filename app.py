@@ -30,6 +30,14 @@ except ImportError:
     COSMOS_AVAILABLE = False
     print("Azure Cosmos DB not available. Registry will not work.")
 
+# Try to import Azure Blob Storage
+try:
+    from azure.storage.blob import BlobServiceClient, ContentSettings
+    BLOB_AVAILABLE = True
+except ImportError:
+    BLOB_AVAILABLE = False
+    print("Azure Blob Storage not available. Image caching disabled.")
+
 # Try to import OpenAI for AI-powered autofill
 try:
     from openai import AzureOpenAI
@@ -108,6 +116,10 @@ COSMOS_KEY = os.environ.get('COSMOS_KEY', '')
 COSMOS_DATABASE = os.environ.get('COSMOS_DATABASE', 'wedding')
 COSMOS_CONTAINER = os.environ.get('COSMOS_CONTAINER', 'registry')
 
+# Blob Storage configuration
+BLOB_CONNECTION_STRING = os.environ.get('BLOB_CONNECTION_STRING', '')
+BLOB_CONTAINER_NAME = os.environ.get('BLOB_CONTAINER_NAME', 'registry-images')
+
 
 def get_cosmos_container():
     """Initialize and return the Cosmos DB container client"""
@@ -131,6 +143,69 @@ def get_cosmos_container():
     except Exception as e:
         app.logger.error(f"❌ Error connecting to Cosmos DB: {e}")
         return None
+
+
+def get_blob_container_client():
+    """Initialize and return the Blob Storage container client"""
+    if not BLOB_AVAILABLE:
+        app.logger.error("❌ Azure Blob Storage library not available")
+        return None
+
+    if not BLOB_CONNECTION_STRING:
+        app.logger.error("❌ BLOB_CONNECTION_STRING not configured")
+        return None
+
+    try:
+        blob_service = BlobServiceClient.from_connection_string(BLOB_CONNECTION_STRING)
+        container_client = blob_service.get_container_client(BLOB_CONTAINER_NAME)
+        # Create container if it doesn't exist
+        try:
+            container_client.get_container_properties()
+        except Exception:
+            container_client.create_container()
+        return container_client
+    except Exception as e:
+        app.logger.error(f"❌ Error connecting to Blob Storage: {e}")
+        return None
+
+
+def cache_image_to_blob(image_url, item_id):
+    """Download an image from a URL and upload it to Azure Blob Storage.
+    Returns the blob name on success, or None on failure.
+    """
+    container_client = get_blob_container_client()
+    if not container_client or not image_url:
+        return None
+
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                          '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        }
+        resp = requests.get(image_url, headers=headers, timeout=15, stream=True)
+        resp.raise_for_status()
+
+        # Determine content type and extension
+        content_type = resp.headers.get('Content-Type', 'image/jpeg')
+        ext_map = {
+            'image/jpeg': '.jpg', 'image/png': '.png',
+            'image/webp': '.webp', 'image/gif': '.gif',
+        }
+        ext = ext_map.get(content_type.split(';')[0].strip(), '.jpg')
+        blob_name = f"{item_id}{ext}"
+
+        blob_client = container_client.get_blob_client(blob_name)
+        blob_client.upload_blob(
+            resp.content,
+            overwrite=True,
+            content_settings=ContentSettings(content_type=content_type.split(';')[0].strip()),
+        )
+        app.logger.info(f"✅ Cached image for item {item_id} as {blob_name}")
+        return blob_name
+    except Exception as e:
+        app.logger.warning(f"⚠️ Could not cache image for item {item_id}: {e}")
+        return None
+
 
 def scrape_title_from_url(url):
     """Scrape title from product URL if title is missing"""
@@ -319,15 +394,17 @@ def registry():
                 item['price'] = float(item.get('price', 0)) if item.get('price') else 0
             except (ValueError, TypeError):
                 item['price'] = 0
-            try:
-                item['priority'] = int(item.get('priority', 0)) if item.get('priority') else 0
-            except (ValueError, TypeError):
-                item['priority'] = 0
+
+            # Use cached image URL if available
+            if item.get('cached_image'):
+                item['display_image_url'] = url_for('registry_image', blob_name=item['cached_image'])
+            else:
+                item['display_image_url'] = item.get('image_url', '')
 
             items.append(item)
 
-        # Sort by priority (higher first), then by price
-        items.sort(key=lambda x: (-x['priority'], x['price']))
+        # Sort by price
+        items.sort(key=lambda x: x['price'])
 
         return render_template('registry.html', items=items)
 
@@ -335,6 +412,36 @@ def registry():
         app.logger.error(f"Error loading registry: {e}")
         flash('Unable to load registry at this time. Please try again later.', 'error')
         return render_template('registry.html', items=[])
+
+
+@app.route('/registry/image/<blob_name>')
+def registry_image(blob_name):
+    """Serve a cached registry image from Azure Blob Storage"""
+    from flask import Response
+
+    # Sanitize blob_name to prevent path traversal
+    import re
+    if not re.match(r'^[a-zA-Z0-9_-]+\.\w{2,4}$', blob_name):
+        return '', 404
+
+    container_client = get_blob_container_client()
+    if not container_client:
+        return '', 404
+
+    try:
+        blob_client = container_client.get_blob_client(blob_name)
+        download = blob_client.download_blob()
+        content_type = download.properties.content_settings.content_type or 'image/jpeg'
+
+        return Response(
+            download.readall(),
+            content_type=content_type,
+            headers={
+                'Cache-Control': 'public, max-age=604800',  # 7 days
+            },
+        )
+    except Exception:
+        return '', 404
 
 def send_email_via_azure(to_email, subject, body, from_email=None):
     """
@@ -560,7 +667,7 @@ def registry_admin():
         container = get_cosmos_container()
         items = []
         if container:
-            query = "SELECT * FROM c ORDER BY c.priority DESC"
+            query = "SELECT * FROM c"
             items = list(container.query_items(query=query, enable_cross_partition_query=True))
         return render_template('registry_admin.html', items=items)
     except Exception as e:
@@ -580,17 +687,23 @@ def registry_admin_add():
         item = {
             'id': str(uuid.uuid4()),
             'url': data.get('url', ''),
-            'priority': int(data.get('priority', 0)),
             'image_url': data.get('image_url', ''),
             'price': float(data.get('price', 0)),
             'bought': False,
             'title': data.get('title', ''),
-            'bought_by': ''
+            'bought_by': '',
+            'cached_image': ''
         }
 
         # Auto-scrape title if not provided
         if not item['title'] and item['url']:
             item['title'] = scrape_title_from_url(item['url'])
+
+        # Cache image to blob storage
+        if item['image_url']:
+            blob_name = cache_image_to_blob(item['image_url'], item['id'])
+            if blob_name:
+                item['cached_image'] = blob_name
 
         container.create_item(body=item)
         return jsonify({'success': True, 'item': item})
@@ -639,8 +752,6 @@ def registry_admin_edit():
         for field in ['url', 'title', 'image_url']:
             if field in data:
                 item[field] = data[field]
-        if 'priority' in data:
-            item['priority'] = int(data['priority'])
         if 'price' in data:
             item['price'] = float(data['price'])
         if 'bought' in data:
