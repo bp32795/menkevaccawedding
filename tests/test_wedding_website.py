@@ -30,7 +30,6 @@ class WeddingWebsiteTestCase(unittest.TestCase):
             {
                 'id': 'item-1',
                 'url': 'https://example.com/item1',
-                'priority': 3,
                 'image_url': 'https://example.com/vase.jpg',
                 'price': 45.99,
                 'bought': False,
@@ -40,7 +39,6 @@ class WeddingWebsiteTestCase(unittest.TestCase):
             {
                 'id': 'item-2',
                 'url': 'https://example.com/item2',
-                'priority': 1,
                 'image_url': 'https://example.com/coffee.jpg',
                 'price': 129.99,
                 'bought': True,
@@ -50,7 +48,6 @@ class WeddingWebsiteTestCase(unittest.TestCase):
             {
                 'id': 'item-3',
                 'url': 'https://example.com/item3',
-                'priority': 2,
                 'image_url': '',
                 'price': 75.50,
                 'bought': False,
@@ -174,8 +171,8 @@ class RegistryPageTestCase(WeddingWebsiteTestCase):
         self.assertIn(b'Registry items will appear here', response.data)
     
     @patch('app.get_cosmos_container')
-    def test_registry_sorting_by_priority(self, mock_get_container):
-        """Test that registry items are sorted by priority"""
+    def test_registry_sorting_by_price(self, mock_get_container):
+        """Test that registry items are sorted by price"""
         mock_container = Mock()
         mock_container.query_items.return_value = iter(self.mock_registry_data)
         mock_get_container.return_value = mock_container
@@ -184,10 +181,10 @@ class RegistryPageTestCase(WeddingWebsiteTestCase):
         self.assertEqual(response.status_code, 200)
         
         content = response.data.decode('utf-8')
-        vase_pos = content.find('Beautiful Vase')
-        coffee_pos = content.find('Coffee Maker')
+        vase_pos = content.find('Beautiful Vase')     # $45.99
+        coffee_pos = content.find('Coffee Maker')      # $129.99
         
-        # Beautiful Vase (priority 3) should come before Coffee Maker (priority 1)
+        # Beautiful Vase ($45.99) should come before Coffee Maker ($129.99)
         self.assertLess(vase_pos, coffee_pos)
     
     @patch('app.get_cosmos_container')

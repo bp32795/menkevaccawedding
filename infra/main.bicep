@@ -1,5 +1,5 @@
 // Menke & Vacca Wedding Website - Azure Infrastructure
-// Deploys: App Service, Cosmos DB, Azure OpenAI (AI Foundry), Communication Services
+// Deploys: App Service, Cosmos DB, Azure OpenAI (AI Foundry), Communication Services, Storage Account
 
 @description('Azure region for all resources')
 param location string = resourceGroup().location
@@ -19,6 +19,9 @@ param openAiDeploymentName string = 'gpt-4o-mini'
 
 @description('Custom domain name (requires DNS CNAME/A record pointing to the App Service). Leave empty to skip.')
 param customDomainName string = ''
+
+@description('Storage account name for registry images (must be globally unique, 3-24 lowercase letters/numbers)')
+param storageAccountName string = 'st${replace(baseName, '-', '')}'
 
 // ──────────────────────────────────────────────
 // App Service Plan + Web App
@@ -56,6 +59,8 @@ resource webApp 'Microsoft.Web/sites@2023-01-01' = {
         { name: 'COSMOS_CONTAINER', value: 'registry' }
         { name: 'AZURE_OPENAI_ENDPOINT', value: openAiAccount.properties.endpoint }
         { name: 'AZURE_OPENAI_DEPLOYMENT', value: openAiDeploymentName }
+        { name: 'BLOB_CONNECTION_STRING', value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};AccountKey=${storageAccount.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}' }
+        { name: 'BLOB_CONTAINER_NAME', value: 'registry-images' }
       ]
     }
     httpsOnly: true
@@ -161,6 +166,51 @@ resource openAiDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024
 }
 
 // ──────────────────────────────────────────────
+// Storage Account (Registry Images — private)
+// ──────────────────────────────────────────────
+
+resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
+  name: storageAccountName
+  location: location
+  kind: 'StorageV2'
+  sku: {
+    name: 'Standard_LRS'
+  }
+  properties: {
+    allowBlobPublicAccess: false
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+  }
+}
+
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = {
+  parent: storageAccount
+  name: 'default'
+}
+
+resource registryImagesContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
+  parent: blobService
+  name: 'registry-images'
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
+// RBAC: Grant the web app "Storage Blob Data Contributor" on the storage account
+@description('Built-in Storage Blob Data Contributor role')
+var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+
+resource storageBlobRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccount.id, webApp.id, storageBlobDataContributorRoleId)
+  scope: storageAccount
+  properties: {
+    principalId: webApp.identity.principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataContributorRoleId)
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ──────────────────────────────────────────────
 // Azure Communication Services (Email)
 // ──────────────────────────────────────────────
 
@@ -204,5 +254,6 @@ output webAppUrl string = 'https://${webApp.properties.defaultHostName}'
 output cosmosEndpoint string = cosmosAccount.properties.documentEndpoint
 output openAiEndpoint string = openAiAccount.properties.endpoint
 output commServicesName string = commServices.name
+output storageAccountName string = storageAccount.name
 output certThumbprint string = !empty(customDomainName) ? managedCertificate!.properties.thumbprint : ''
 output sslBindCommand string = !empty(customDomainName) ? 'az webapp config ssl bind --certificate-thumbprint ${managedCertificate!.properties.thumbprint} --ssl-type SNI -n ${baseName} -g <resource-group>' : 'No custom domain configured'

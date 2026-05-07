@@ -31,17 +31,6 @@
         width: 100%;
     }
     
-    .item-priority {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        background: var(--primary-color);
-        color: white;
-        padding: 5px 10px;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        font-weight: 600;
-    }
     
     .item-price {
         font-size: 1.2rem;
@@ -165,8 +154,7 @@
                 </div>
                 <div class="col-md-6">
                     <div class="text-md-end">
-                        <button class="btn btn-outline-primary sort-btn active" data-sort="priority">Priority</button>
-                        <button class="btn btn-outline-primary sort-btn" data-sort="price-low">Price: Low to High</button>
+                        <button class="btn btn-outline-primary sort-btn active" data-sort="price-low">Price: Low to High</button>
                         <button class="btn btn-outline-primary sort-btn" data-sort="price-high">Price: High to Low</button>
                         <button class="btn btn-outline-primary sort-btn" data-sort="name">Name</button>
                     </div>
@@ -179,17 +167,14 @@
             {% if items %}
                 {% for item in items %}
                 <div class="col-lg-4 col-md-6 registry-item-container" 
-                     data-priority="{{ item.priority or 0 }}" 
                      data-price="{{ item.price or 0 }}" 
                      data-name="{{ item.title or 'Product' }}">
                     <div class="card registry-item h-100 {% if item.bought %}bought{% endif %}">
-                        {% if item.priority and item.priority > 0 %}
-                            <div class="item-priority">
-                                Priority {{ item.priority }}
-                            </div>
-                        {% endif %}
                         
-                        {% if item.image_url %}
+                        {% if item.display_image_url %}
+                            <img src="{{ item.display_image_url }}" class="item-image" alt="{{ item.title or 'Product' }}" 
+                                 onerror="this.src='https://via.placeholder.com/300x250/E8D5B7/8B4B8C?text=No+Image'">
+                        {% elif item.image_url %}
                             <img src="{{ item.image_url }}" class="item-image" alt="{{ item.title or 'Product' }}" 
                                  onerror="this.src='https://via.placeholder.com/300x250/E8D5B7/8B4B8C?text=No+Image'">
                         {% else %}
@@ -337,8 +322,6 @@ document.addEventListener('DOMContentLoaded', function() {
             // Sort items
             items.sort((a, b) => {
                 switch (sortType) {
-                    case 'priority':
-                        return parseInt(b.dataset.priority) - parseInt(a.dataset.priority);
                     case 'price-low':
                         return parseFloat(a.dataset.price) - parseFloat(b.dataset.price);
                     case 'price-high':
