@@ -6,12 +6,13 @@ A Flask web application for wedding RSVP and registry management
 from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
 from flask_mail import Mail, Message
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 import requests
 from bs4 import BeautifulSoup
 import json
 import logging
 import uuid
+import threading
 from dotenv import load_dotenv
 
 # Try to import Azure Communication Services (optional)
@@ -120,6 +121,9 @@ COSMOS_CONTAINER = os.environ.get('COSMOS_CONTAINER', 'registry')
 BLOB_CONNECTION_STRING = os.environ.get('BLOB_CONNECTION_STRING', '')
 BLOB_CONTAINER_NAME = os.environ.get('BLOB_CONTAINER_NAME', 'registry-images')
 
+# Visitor tracking configuration
+COSMOS_VISITORS_CONTAINER = os.environ.get('COSMOS_VISITORS_CONTAINER', 'visitors')
+
 
 def get_cosmos_container():
     """Initialize and return the Cosmos DB container client"""
@@ -205,6 +209,91 @@ def cache_image_to_blob(image_url, item_id):
     except Exception as e:
         app.logger.warning(f"⚠️ Could not cache image for item {item_id}: {e}")
         return None
+
+
+def get_visitors_container():
+    """Initialize and return the Cosmos DB visitors container client"""
+    if not COSMOS_AVAILABLE or not COSMOS_ENDPOINT or not COSMOS_KEY:
+        return None
+    try:
+        client = CosmosClient(COSMOS_ENDPOINT, COSMOS_KEY)
+        database = client.create_database_if_not_exists(id=COSMOS_DATABASE)
+        container = database.create_container_if_not_exists(
+            id=COSMOS_VISITORS_CONTAINER,
+            partition_key=PartitionKey(path="/id"),
+            offer_throughput=400
+        )
+        return container
+    except Exception as e:
+        app.logger.error(f"❌ Error connecting to visitors container: {e}")
+        return None
+
+
+def geolocate_ip(ip):
+    """Look up geographic location of an IP address using ip-api.com (free, no key)."""
+    if not ip or ip in ('127.0.0.1', '::1', 'localhost'):
+        return None
+    try:
+        resp = requests.get(
+            f'http://ip-api.com/json/{ip}',
+            params={'fields': 'status,country,regionName,city,lat,lon,isp'},
+            timeout=5
+        )
+        data = resp.json()
+        if data.get('status') == 'success':
+            return {
+                'country': data.get('country', ''),
+                'region': data.get('regionName', ''),
+                'city': data.get('city', ''),
+                'lat': data.get('lat', 0),
+                'lon': data.get('lon', 0),
+                'isp': data.get('isp', ''),
+            }
+    except Exception as e:
+        app.logger.warning(f"Geolocation failed for {ip}: {e}")
+    return None
+
+
+def log_visitor_async(ip, path, user_agent):
+    """Log a visitor request to Cosmos DB in a background thread."""
+    def _log():
+        try:
+            container = get_visitors_container()
+            if not container:
+                return
+            geo = geolocate_ip(ip)
+            visit = {
+                'id': str(uuid.uuid4()),
+                'ip': ip,
+                'path': path,
+                'user_agent': user_agent,
+                'timestamp': datetime.now(timezone.utc).isoformat(),
+            }
+            if geo:
+                visit.update(geo)
+            container.create_item(body=visit)
+        except Exception as e:
+            app.logger.warning(f"Could not log visitor: {e}")
+
+    thread = threading.Thread(target=_log, daemon=True)
+    thread.start()
+
+
+# Paths to skip when logging visitors
+_SKIP_PATHS = frozenset(['/static', '/favicon.ico', '/monitor'])
+
+
+@app.before_request
+def track_visitor():
+    """Log each visitor request for the monitoring dashboard."""
+    path = request.path
+    if any(path.startswith(p) for p in _SKIP_PATHS):
+        return
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    if ip and ',' in ip:
+        ip = ip.split(',')[0].strip()
+    user_agent = request.headers.get('User-Agent', '')[:200]
+    log_visitor_async(ip, path, user_agent)
 
 
 def scrape_title_from_url(url):
@@ -832,6 +921,80 @@ def registry_admin_autofill():
 def not_found(error):
     """404 error handler"""
     return render_template('404.html'), 404
+
+
+@app.route('/monitor')
+def monitor():
+    """Visitor monitoring dashboard with geographic map"""
+    try:
+        container = get_visitors_container()
+        if not container:
+            return render_template('monitor.html', total_visits=0, unique_ips=0,
+                                   unique_cities=0, unique_countries=0, top_pages=[],
+                                   top_locations=[], recent_visits=[], map_points=[])
+
+        visits = list(container.query_items(
+            query="SELECT * FROM c", enable_cross_partition_query=True))
+
+        total_visits = len(visits)
+        unique_ips = len({v.get('ip', '') for v in visits})
+
+        # Aggregate locations
+        city_set = set()
+        country_set = set()
+        location_counts = {}
+        map_data = {}
+        page_counts = {}
+
+        for v in visits:
+            city = v.get('city', '')
+            country = v.get('country', '')
+            lat = v.get('lat')
+            lon = v.get('lon')
+            path = v.get('path', '/')
+
+            if city:
+                city_set.add(city)
+            if country:
+                country_set.add(country)
+
+            # Page counts
+            page_counts[path] = page_counts.get(path, 0) + 1
+
+            # Location counts
+            if city or country:
+                loc_key = f"{city}|{country}"
+                if loc_key not in location_counts:
+                    location_counts[loc_key] = {'city': city, 'country': country, 'count': 0}
+                location_counts[loc_key]['count'] += 1
+
+            # Map markers
+            if lat and lon:
+                coord_key = f"{lat},{lon}"
+                if coord_key not in map_data:
+                    map_data[coord_key] = {'lat': lat, 'lon': lon, 'city': city,
+                                           'country': country, 'count': 0}
+                map_data[coord_key]['count'] += 1
+
+        top_pages = sorted(page_counts.items(), key=lambda x: -x[1])[:10]
+        top_locations = sorted(location_counts.values(), key=lambda x: -x['count'])[:10]
+        recent_visits = sorted(visits, key=lambda x: x.get('timestamp', ''), reverse=True)[:50]
+        map_points = list(map_data.values())
+
+        return render_template('monitor.html',
+                               total_visits=total_visits,
+                               unique_ips=unique_ips,
+                               unique_cities=len(city_set),
+                               unique_countries=len(country_set),
+                               top_pages=top_pages,
+                               top_locations=top_locations,
+                               recent_visits=recent_visits,
+                               map_points=map_points)
+    except Exception as e:
+        app.logger.error(f"Error loading monitor dashboard: {e}")
+        return render_template('monitor.html', total_visits=0, unique_ips=0,
+                               unique_cities=0, unique_countries=0, top_pages=[],
+                               top_locations=[], recent_visits=[], map_points=[])
 
 @app.errorhandler(500)
 def internal_error(error):
