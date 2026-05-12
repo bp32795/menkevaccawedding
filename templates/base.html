@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Menke & Vacca Wedding{% endblock %}</title>
     
+    <!-- Application Insights -->
+    <script type="text/javascript">
+    !function(T,l,y){var S=T.location,k="script",D="instrumentationKey",C="ingestionendpoint",I="disableExceptionTracking",E="ai.device.",b="toLowerCase",w="crossOrigin",N="POST",e="appInsightsSDK",t=y.name||"appInsights";(y.name||T[e])&&(T[e]=t);var n=T[t]||function(d){var g=!1,f=!1,m={initialize:!0,queue:[],sv:"8",version:2,config:d};function v(e,t){var n={},a="Browser";return n[E+"id"]=a[b](),n[E+"type"]=a,n["ai.operation.name"]=S&&S.pathname||"_unknown_",n["ai.internal.sdkVersion"]="javascript:snippet:"+(m.sv||m.version),n}var h=d.url||y.src;if(h){function a(e){var t,n,a,i,o,s,r,c,u,p,l;(t=m.cfg)[C]||(t[C]="https://dc.services.visualstudio.com"),(a=(n=t).url)&&"string"==typeof(l=a)&&""!==l.trim()||(a="https://js.monitor.azure.com/scripts/b/ai."+(t.sv||"2")+".min.js");var d={src:a,cfg:t};r=d,c=e,u=h,p=T,l=document,s="script",o=void 0,(i=l.createElement(s)).src=r.src,void 0!==o&&(i.integrity=o),i.setAttribute("data-ai-name",t.name||e),r.cfg.ld=r.cfg.ld||-1,c&&(c.d=c.d||[],c.d.push({t:"load",l:i})),i[w]="anonymous",i.onload=function(){r.cfg.ld=r.cfg.ld>=0?1:0},i.onerror=function(){r.cfg.ld=-2},l.getElementsByTagName("head")[0].appendChild(i)}setTimeout(function(){a(m)},0)}return m}(y);T[t]=n;var i=n.queue||[];function a(e){i.push(e)}for(var r=["Event","PageView","Exception","Trace","DependencyData","Metric","PageViewPerformance"];r.length;)a("track"+r.pop());a("startTrackPage"),a("stopTrackPage");var s="Track",o=s+"Page";if(a("start"+o),a("stop"+o),!1!==y.ldi){a("loadDependency");a("loadModule")}if(a("setAuthenticatedUserContext"),a("clearAuthenticatedUserContext"),a("addTelemetryInitializer"),a("flush"),!(!0===y.sr||y.ldi&&!1===y.sr)){var c,u=(c=T).fetch;!0!==y.ldi||u&&!y.ffdb?y.ldi&&u&&!y.ffdb&&(c.fetch=function(e,t){return n.queue.push(["fetch",!0,arguments]),u.call(c,e,t)}):a("fetch"),i.push(["SeverityLevel",{Verbose:0,Information:1,Warning:2,Error:3,Critical:4}])}var p=y.url||h;return y.sri&&p&&""!==p.trim()?(a("sri"),i.push([p,y.sri])):a("nri"),n.queue=i,n}({
+        src: "https://js.monitor.azure.com/scripts/b/ai.3.gbl.min.js",
+        crossOrigin: "anonymous",
+        cfg: {
+            connectionString: "InstrumentationKey=fc033e58-bdc2-4bde-ab32-ed143f5d369e;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=100d60ec-06b6-45d6-b05f-87af66e9c391"
+        }
+    });
+    </script>
+
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
     <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">

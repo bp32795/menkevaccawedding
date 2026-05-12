@@ -6,7 +6,7 @@ A Flask web application for wedding RSVP and registry management
 from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
 from flask_mail import Mail, Message
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 import requests
 from bs4 import BeautifulSoup
 import json
@@ -826,6 +826,12 @@ def registry_admin_autofill():
 
     result['source'] = source
     return jsonify(result)
+
+
+@app.errorhandler(404)
+def not_found(error):
+    """404 error handler"""
+    return render_template('404.html'), 404
 
 
 @app.errorhandler(404)
