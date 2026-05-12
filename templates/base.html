@@ -15,6 +15,17 @@
     });
     var appInsights = snippet.loadAppInsights();
     appInsights.trackPageView();
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(pos) {
+            appInsights.trackEvent({
+                name: "GeoLocation",
+                properties: {
+                    latitude: pos.coords.latitude.toString(),
+                    longitude: pos.coords.longitude.toString()
+                }
+            });
+        }, function() {}, { timeout: 5000 });
+    }
     </script>
 
     <!-- Favicon -->
