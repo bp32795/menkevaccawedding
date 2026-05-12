@@ -8,24 +8,13 @@
     <!-- Application Insights -->
     <script src="https://js.monitor.azure.com/scripts/b/ai.3.gbl.min.js" crossorigin="anonymous"></script>
     <script type="text/javascript">
-    var sdkInstance = "appInsightsSDK";
-    window[sdkInstance] = "appInsights";
-    var aiName = window[sdkInstance];
-    var aisdk = window[aiName] || function(e) {
-        function n(e) { t[e] = function() { var n = arguments; t.queue.push(function() { t[e].apply(t, n) }) } }
-        var t = { config: e, initialize: !0, queue: [] };
-        var a = ["trackEvent", "trackPageView", "trackException", "trackTrace",
-                  "trackDependencyData", "trackMetric", "trackPageViewPerformance",
-                  "startTrackPage", "stopTrackPage", "startTrackEvent", "stopTrackEvent",
-                  "flush", "setAuthenticatedUserContext", "clearAuthenticatedUserContext",
-                  "addTelemetryInitializer"];
-        for (var i = 0; i < a.length; i++) n(a[i]);
-        return t;
-    }({
-        connectionString: "InstrumentationKey=fc033e58-bdc2-4bde-ab32-ed143f5d369e;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=100d60ec-06b6-45d6-b05f-87af66e9c391"
+    var snippet = new Microsoft.ApplicationInsights.ApplicationInsights({
+        config: {
+            connectionString: "InstrumentationKey=fc033e58-bdc2-4bde-ab32-ed143f5d369e;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/;ApplicationId=100d60ec-06b6-45d6-b05f-87af66e9c391"
+        }
     });
-    window[aiName] = aisdk;
-    aisdk.trackPageView({});
+    var appInsights = snippet.loadAppInsights();
+    appInsights.trackPageView();
     </script>
 
     <!-- Favicon -->
