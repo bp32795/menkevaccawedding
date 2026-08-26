@@ -5,6 +5,8 @@ A Flask web application for wedding RSVP and registry management
 
 from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, session
 from flask_mail import Mail, Message
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from markupsafe import escape
 import os
 from datetime import datetime, timezone
 import random
@@ -119,6 +121,8 @@ COSMOS_DATABASE = os.environ.get('COSMOS_DATABASE', 'wedding')
 COSMOS_CONTAINER = os.environ.get('COSMOS_CONTAINER', 'registry')
 COSMOS_RESPONSE_CONTAINER = os.environ.get(
     'COSMOS_RESPONSE_CONTAINER', 'wedding-responses')
+RSVP_EDIT_LINK_MAX_AGE = 60 * 60 * 24 * 180
+RSVP_EDIT_LINK_SALT = 'rsvp-edit-link'
 
 # Blob Storage configuration
 BLOB_CONNECTION_STRING = os.environ.get('BLOB_CONNECTION_STRING', '')
@@ -211,6 +215,45 @@ def find_rsvp_by_email(container, email):
         enable_cross_partition_query=True
     ))
     return results[0] if results else None
+
+
+def generate_rsvp_edit_token(rsvp_record):
+    """Create a signed token that identifies one RSVP and email address."""
+    serializer = URLSafeTimedSerializer(app.secret_key)
+    return serializer.dumps(
+        {'id': rsvp_record['id'], 'email': rsvp_record['email']},
+        salt=RSVP_EDIT_LINK_SALT
+    )
+
+
+def get_rsvp_from_edit_token(token):
+    """Validate an edit token and return its RSVP, or None when invalid."""
+    serializer = URLSafeTimedSerializer(app.secret_key)
+    try:
+        token_data = serializer.loads(
+            token,
+            salt=RSVP_EDIT_LINK_SALT,
+            max_age=RSVP_EDIT_LINK_MAX_AGE
+        )
+    except (BadSignature, SignatureExpired):
+        return None
+
+    rsvp_id = token_data.get('id')
+    email = normalize_email(token_data.get('email'))
+    if not rsvp_id or not email:
+        return None
+
+    container = get_response_container()
+    if not container:
+        return None
+    try:
+        rsvp_record = container.read_item(item=rsvp_id, partition_key=rsvp_id)
+    except Exception:
+        return None
+    if (rsvp_record.get('document_type') != 'rsvp' or
+            rsvp_record.get('email') != email):
+        return None
+    return rsvp_record
 
 
 def get_blob_container_client():
@@ -430,7 +473,31 @@ def rsvp():
     return render_template(
         'rsvp.html',
         rsvp_captcha=create_captcha('rsvp'),
-        lookup_captcha=create_captcha('lookup')
+        lookup_captcha=create_captcha('lookup'),
+        initial_rsvp=None
+    )
+
+
+@app.route('/rsvp/edit/<token>')
+def edit_rsvp_from_link(token):
+    """Authorize an RSVP edit from a signed confirmation-email link."""
+    rsvp_record = get_rsvp_from_edit_token(token)
+    if not rsvp_record:
+        flash('That RSVP edit link is invalid or has expired.', 'error')
+        return redirect(url_for('rsvp'))
+
+    session['editable_rsvp_id'] = rsvp_record['id']
+    session['editable_rsvp_email'] = rsvp_record['email']
+    return render_template(
+        'rsvp.html',
+        rsvp_captcha=create_captcha('rsvp'),
+        lookup_captcha=create_captcha('lookup'),
+        initial_rsvp={
+            'party_names': rsvp_record.get('party_names', ''),
+            'attending': rsvp_record.get('attending', ''),
+            'party_size': rsvp_record.get('party_size', 1),
+            'email': rsvp_record.get('email', '')
+        }
     )
 
 
@@ -491,6 +558,13 @@ def submit_rsvp():
         session.pop('editable_rsvp_id', None)
         session.pop('editable_rsvp_email', None)
         send_rsvp_notification_email(rsvp_record, is_update=True)
+        edit_url = url_for(
+            'edit_rsvp_from_link',
+            token=generate_rsvp_edit_token(rsvp_record),
+            _external=True,
+            _scheme='https'
+        )
+        send_guest_rsvp_confirmation(rsvp_record, edit_url)
         return jsonify({'success': True, 'message': 'Your RSVP has been updated.'})
 
     if find_rsvp_by_email(container, email):
@@ -510,6 +584,13 @@ def submit_rsvp():
     }
     container.create_item(body=rsvp_record)
     send_rsvp_notification_email(rsvp_record, is_update=False)
+    edit_url = url_for(
+        'edit_rsvp_from_link',
+        token=generate_rsvp_edit_token(rsvp_record),
+        _external=True,
+        _scheme='https'
+    )
+    send_guest_rsvp_confirmation(rsvp_record, edit_url)
     return jsonify({
         'success': True,
         'message': 'Thank you. Your RSVP has been received.'
@@ -673,7 +754,8 @@ def registry_image(blob_name):
     except Exception:
         return '', 404
 
-def send_email_via_azure(to_email, subject, body, from_email=None):
+def send_email_via_azure(
+    to_email, subject, body, from_email=None, html_body=None):
     """
     Send email using Azure Communication Services
     """
@@ -722,6 +804,8 @@ def send_email_via_azure(to_email, subject, body, from_email=None):
                 "plainText": body
             }
         }
+        if html_body:
+            message['content']['html'] = html_body
         
         app.logger.info("📧 Sending email via Azure Communication Services...")
         
@@ -779,6 +863,57 @@ def send_couple_notification(subject, body):
             return True
     except Exception as error:
         app.logger.error(f"Error sending form notification: {error}")
+    return False
+
+
+def send_guest_rsvp_confirmation(data, edit_url):
+    """Send RSVP details and a signed edit link to the submitting guest."""
+    attendance = 'Yes' if data['attending'] == 'yes' else 'No'
+    subject = 'Your Menke & Vacca Wedding RSVP'
+    plain_body = (
+        "Thank you for your response! Please find your submission below:\n\n"
+        f"Party names: {data['party_names']}\n"
+        f"Attending: {attendance}\n"
+        f"Party size: {data['party_size']}\n"
+        f"Email: {data['email']}\n\n"
+        f"Click here to change any details: {edit_url}\n\n"
+        "Thanks,\n"
+        "Brandon and Sofie"
+    )
+    safe_party_names = escape(data['party_names'])
+    safe_email = escape(data['email'])
+    safe_edit_url = escape(edit_url)
+    html_body = (
+        "<p>Thank you for your response! Please find your submission below:</p>"
+        "<p>"
+        f"<strong>Party names:</strong> {safe_party_names}<br>"
+        f"<strong>Attending:</strong> {attendance}<br>"
+        f"<strong>Party size:</strong> {data['party_size']}<br>"
+        f"<strong>Email:</strong> {safe_email}"
+        "</p>"
+        f'<p><a href="{safe_edit_url}">Click here to change any details.</a></p>'
+        "<p>Thanks,<br>Brandon and Sofie</p>"
+    )
+    recipients = [data['email']]
+
+    if os.environ.get('AZURE_COMMUNICATION_CONNECTION_STRING'):
+        if send_email_via_azure(
+                recipients, subject, plain_body, html_body=html_body):
+            return True
+
+    try:
+        if (app.config.get('MAIL_USERNAME') and
+                not app.config.get('MAIL_SUPPRESS_SEND')):
+            mail.send(Message(
+                subject=subject,
+                recipients=recipients,
+                sender=app.config['MAIL_DEFAULT_SENDER'],
+                body=plain_body,
+                html=html_body
+            ))
+            return True
+    except Exception as error:
+        app.logger.error(f"Error sending RSVP confirmation: {error}")
     return False
 
 

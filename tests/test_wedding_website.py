@@ -12,6 +12,7 @@ import os
 # Add the parent directory to the path so we can import app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import app as app_module
 from app import app, get_notification_recipients, scrape_title_from_url
 
 
@@ -91,11 +92,12 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         self.assertIn(b'Click Here to RSVP', response.data)
         self.assertIn(b'Change RSVP', response.data)
 
+    @patch('app.send_guest_rsvp_confirmation')
     @patch('app.send_rsvp_notification_email')
     @patch('app.get_response_container')
     def test_submit_rsvp_stores_response_and_sends_email(
-            self, mock_get_container, mock_send_email):
-        """A valid RSVP is stored and emailed to the couple."""
+            self, mock_get_container, mock_send_email, mock_guest_email):
+        """A valid RSVP is stored and emailed to the couple and guest."""
         mock_container = Mock()
         mock_container.query_items.return_value = []
         mock_get_container.return_value = mock_container
@@ -118,6 +120,9 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         self.assertEqual(stored_rsvp['email'], 'taylor@example.com')
         self.assertEqual(stored_rsvp['party_size'], 2)
         mock_send_email.assert_called_once_with(stored_rsvp, is_update=False)
+        mock_guest_email.assert_called_once()
+        self.assertEqual(mock_guest_email.call_args.args[0], stored_rsvp)
+        self.assertIn('/rsvp/edit/', mock_guest_email.call_args.args[1])
 
     @patch('app.get_response_container')
     def test_submit_rsvp_rejects_duplicate_email(self, mock_get_container):
@@ -170,10 +175,11 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         with self.client.session_transaction() as session_data:
             self.assertEqual(session_data['editable_rsvp_id'], 'rsvp-1')
 
+    @patch('app.send_guest_rsvp_confirmation')
     @patch('app.send_rsvp_notification_email')
     @patch('app.get_response_container')
     def test_change_rsvp_updates_authorized_record(
-            self, mock_get_container, mock_send_email):
+            self, mock_get_container, mock_send_email, mock_guest_email):
         """A lookup-authorized RSVP edit updates only that record."""
         mock_container = Mock()
         mock_container.read_item.return_value = {
@@ -201,6 +207,59 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         updated_rsvp = mock_container.replace_item.call_args.kwargs['body']
         self.assertEqual(updated_rsvp['party_size'], 2)
         mock_send_email.assert_called_once_with(updated_rsvp, is_update=True)
+        mock_guest_email.assert_called_once()
+        self.assertEqual(mock_guest_email.call_args.args[0], updated_rsvp)
+
+    @patch('app.get_response_container')
+    def test_signed_edit_link_prefills_saved_rsvp(self, mock_get_container):
+        """A valid signed link authorizes and preloads the matching RSVP."""
+        saved_rsvp = {
+            'id': 'rsvp-1',
+            'document_type': 'rsvp',
+            'party_names': 'Taylor Smith, Jordan Smith',
+            'attending': 'yes',
+            'party_size': 2,
+            'email': 'taylor@example.com'
+        }
+        mock_container = Mock()
+        mock_container.read_item.return_value = saved_rsvp
+        mock_get_container.return_value = mock_container
+        token = app_module.generate_rsvp_edit_token(saved_rsvp)
+
+        response = self.client.get(f'/rsvp/edit/{token}')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Taylor Smith, Jordan Smith', response.data)
+        with self.client.session_transaction() as session_data:
+            self.assertEqual(session_data['editable_rsvp_id'], 'rsvp-1')
+
+    @patch('app.send_email_via_azure')
+    @patch.dict(os.environ, {'AZURE_COMMUNICATION_CONNECTION_STRING': 'configured'})
+    def test_guest_confirmation_contains_details_and_html_edit_link(
+            self, mock_send_email):
+        """Guest confirmation includes submitted details and a linked edit action."""
+        rsvp_record = {
+            'id': 'rsvp-1',
+            'party_names': 'Taylor Smith, Jordan Smith',
+            'attending': 'yes',
+            'party_size': 2,
+            'email': 'taylor@example.com'
+        }
+        edit_url = 'https://test.menkexvacca.com/rsvp/edit/signed-token'
+        mock_send_email.return_value = True
+
+        result = app_module.send_guest_rsvp_confirmation(rsvp_record, edit_url)
+
+        self.assertTrue(result)
+        recipients, subject, plain_body = mock_send_email.call_args.args
+        html_body = mock_send_email.call_args.kwargs['html_body']
+        self.assertEqual(recipients, ['taylor@example.com'])
+        self.assertEqual(subject, 'Your Menke & Vacca Wedding RSVP')
+        self.assertIn('Thank you for your response!', plain_body)
+        self.assertIn('Taylor Smith, Jordan Smith', plain_body)
+        self.assertIn(edit_url, plain_body)
+        self.assertIn(f'href="{edit_url}"', html_body)
+        self.assertIn('Thanks,<br>Brandon and Sofie', html_body)
 
     def test_submit_rsvp_rejects_invalid_captcha(self):
         """A new RSVP requires the server-generated bot challenge."""

@@ -202,6 +202,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const lookupForm = document.getElementById('lookupForm');
     const rsvpModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('rsvpModal'));
     const lookupModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('lookupModal'));
+    const initialRsvp = {{ initial_rsvp | tojson }};
     let isUpdate = false;
 
     function setStatus(element, message, success) {
@@ -214,6 +215,24 @@ document.addEventListener('DOMContentLoaded', function() {
         const data = await response.json();
         document.getElementById(`${purpose}CaptchaQuestion`).textContent = data.question;
         document.getElementById(`${purpose}Captcha`).value = '';
+    }
+
+    function prepareUpdateForm(rsvp) {
+        isUpdate = true;
+        rsvpForm.reset();
+        document.getElementById('partyNames').value = rsvp.party_names;
+        document.getElementById('partySize').value = rsvp.party_size;
+        document.getElementById('rsvpEmail').value = rsvp.email;
+        const attendance = document.querySelector(
+            `input[name="attending"][value="${rsvp.attending}"]`
+        );
+        if (attendance) attendance.checked = true;
+        document.getElementById('rsvpModalLabel').textContent = 'Update RSVP';
+        document.getElementById('rsvpModeMessage').textContent = 'Review and update your saved response.';
+        document.getElementById('rsvpSubmitButton').lastChild.textContent = 'Update RSVP';
+        document.getElementById('rsvpCaptchaGroup').classList.add('d-none');
+        document.getElementById('rsvpCaptcha').required = false;
+        document.getElementById('rsvpStatus').textContent = '';
     }
 
     document.getElementById('newRsvpButton').addEventListener('click', function() {
@@ -286,24 +305,15 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        isUpdate = true;
-        rsvpForm.reset();
-        document.getElementById('partyNames').value = data.rsvp.party_names;
-        document.getElementById('partySize').value = data.rsvp.party_size;
-        document.getElementById('rsvpEmail').value = data.rsvp.email;
-        const attendance = document.querySelector(
-            `input[name="attending"][value="${data.rsvp.attending}"]`
-        );
-        if (attendance) attendance.checked = true;
-        document.getElementById('rsvpModalLabel').textContent = 'Update RSVP';
-        document.getElementById('rsvpModeMessage').textContent = 'Review and update your saved response.';
-        document.getElementById('rsvpSubmitButton').lastChild.textContent = 'Update RSVP';
-        document.getElementById('rsvpCaptchaGroup').classList.add('d-none');
-        document.getElementById('rsvpCaptcha').required = false;
-        document.getElementById('rsvpStatus').textContent = '';
+        prepareUpdateForm(data.rsvp);
         lookupModal.hide();
         setTimeout(function() { rsvpModal.show(); }, 250);
     });
+
+    if (initialRsvp) {
+        prepareUpdateForm(initialRsvp);
+        rsvpModal.show();
+    }
 });
 </script>
 {% endblock %}
