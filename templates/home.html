@@ -48,11 +48,10 @@
                 </div>
                 
                 <div class="mt-5">
-                    <div class="alert alert-light d-inline-block">
-                        <i class="fas fa-calendar-check me-2"></i>
-                        <strong>RSVPs coming soon!</strong> We'll share the link when it's ready.
-                    </div>
                     <div class="d-flex flex-column flex-sm-row justify-content-center align-items-center gap-2 mt-3">
+                        <a href="{{ url_for('rsvp') }}" class="btn btn-light btn-lg">
+                            <i class="fas fa-envelope-open-text me-2"></i>RSVP
+                        </a>
                         <a href="https://book.passkey.com/e/51185846" target="_blank" rel="noopener noreferrer" class="btn btn-light btn-lg">
                             <i class="fas fa-hotel me-2"></i>Book a Room
                         </a>

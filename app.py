@@ -3,10 +3,12 @@ Menke Vacca Wedding Website
 A Flask web application for wedding RSVP and registry management
 """
 
-from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
+from flask import Flask, render_template, request, jsonify, flash, redirect, url_for, session
 from flask_mail import Mail, Message
 import os
 from datetime import datetime, timezone
+import random
+import re
 import requests
 from bs4 import BeautifulSoup
 import json
@@ -115,6 +117,8 @@ COSMOS_ENDPOINT = os.environ.get('COSMOS_ENDPOINT', '')
 COSMOS_KEY = os.environ.get('COSMOS_KEY', '')
 COSMOS_DATABASE = os.environ.get('COSMOS_DATABASE', 'wedding')
 COSMOS_CONTAINER = os.environ.get('COSMOS_CONTAINER', 'registry')
+COSMOS_RESPONSE_CONTAINER = os.environ.get(
+    'COSMOS_RESPONSE_CONTAINER', 'wedding-responses')
 
 # Blob Storage configuration
 BLOB_CONNECTION_STRING = os.environ.get('BLOB_CONNECTION_STRING', '')
@@ -143,6 +147,70 @@ def get_cosmos_container():
     except Exception as e:
         app.logger.error(f"❌ Error connecting to Cosmos DB: {e}")
         return None
+
+
+def get_response_container():
+    """Initialize the Cosmos DB container for RSVPs and contact messages."""
+    if not COSMOS_AVAILABLE or not COSMOS_ENDPOINT or not COSMOS_KEY:
+        app.logger.error("Cosmos DB is not configured for wedding responses")
+        return None
+
+    try:
+        client = CosmosClient(COSMOS_ENDPOINT, COSMOS_KEY)
+        database = client.create_database_if_not_exists(id=COSMOS_DATABASE)
+        return database.create_container_if_not_exists(
+            id=COSMOS_RESPONSE_CONTAINER,
+            partition_key=PartitionKey(path="/id"),
+            offer_throughput=400
+        )
+    except Exception as error:
+        app.logger.error(f"Error connecting to response database: {error}")
+        return None
+
+
+def create_captcha(purpose):
+    """Create a small arithmetic challenge stored in the visitor's session."""
+    first_number = random.randint(1, 9)
+    second_number = random.randint(1, 9)
+    session[f'captcha_{purpose}'] = first_number + second_number
+    return f"What is {first_number} + {second_number}?"
+
+
+def validate_captcha(purpose, answer, honeypot=''):
+    """Validate and consume a bot challenge and reject honeypot submissions."""
+    expected_answer = session.pop(f'captcha_{purpose}', None)
+    if honeypot or expected_answer is None:
+        return False
+    try:
+        return int(answer) == expected_answer
+    except (TypeError, ValueError):
+        return False
+
+
+def normalize_email(email):
+    """Return a normalized email address, or an empty string when invalid."""
+    normalized_email = str(email or '').strip().lower()
+    if len(normalized_email) > 254:
+        return ''
+    if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', normalized_email):
+        return ''
+    return normalized_email
+
+
+def find_rsvp_by_email(container, email):
+    """Find the first RSVP associated with a normalized email address."""
+    results = list(container.query_items(
+        query=(
+            'SELECT * FROM c WHERE c.document_type = @document_type '
+            'AND c.email = @email'
+        ),
+        parameters=[
+            {'name': '@document_type', 'value': 'rsvp'},
+            {'name': '@email', 'value': email}
+        ],
+        enable_cross_partition_query=True
+    ))
+    return results[0] if results else None
 
 
 def get_blob_container_client():
@@ -358,8 +426,170 @@ def home():
 
 @app.route('/rsvp')
 def rsvp():
-    """RSVP page - to be configured later"""
-    return render_template('rsvp.html')
+    """Display RSVP creation and change controls."""
+    return render_template(
+        'rsvp.html',
+        rsvp_captcha=create_captcha('rsvp'),
+        lookup_captcha=create_captcha('lookup')
+    )
+
+
+@app.route('/api/rsvp', methods=['POST'])
+def submit_rsvp():
+    """Create a new RSVP or update a response authorized by email lookup."""
+    data = request.get_json(silent=True) or {}
+    is_update = data.get('is_update') is True
+
+    if data.get('website'):
+        return jsonify({'error': 'Unable to verify submission.'}), 400
+    if not is_update and not validate_captcha(
+            'rsvp', data.get('captcha'), data.get('website')):
+        return jsonify({'error': 'Bot verification failed. Please try again.'}), 400
+
+    party_names = str(data.get('party_names') or '').strip()
+    attending = str(data.get('attending') or '').strip().lower()
+    email = normalize_email(data.get('email'))
+    try:
+        party_size = int(data.get('party_size'))
+    except (TypeError, ValueError):
+        party_size = 0
+
+    if not party_names or len(party_names) > 1000:
+        return jsonify({'error': 'Please provide the names in your party.'}), 400
+    if attending not in {'yes', 'no'}:
+        return jsonify({'error': 'Please select whether your party will attend.'}), 400
+    if not 1 <= party_size <= 20:
+        return jsonify({'error': 'Party size must be between 1 and 20.'}), 400
+    if not email:
+        return jsonify({'error': 'Please provide a valid email address.'}), 400
+
+    container = get_response_container()
+    if not container:
+        return jsonify({'error': 'The RSVP system is unavailable. Please try again.'}), 503
+
+    now = datetime.now(timezone.utc).isoformat()
+    if is_update:
+        rsvp_id = session.get('editable_rsvp_id')
+        authorized_email = session.get('editable_rsvp_email')
+        if not rsvp_id or authorized_email != email:
+            return jsonify({'error': 'Please look up your RSVP again before editing.'}), 403
+        try:
+            rsvp_record = container.read_item(item=rsvp_id, partition_key=rsvp_id)
+        except Exception:
+            return jsonify({'error': 'RSVP not found.'}), 404
+        if (rsvp_record.get('document_type') != 'rsvp' or
+                rsvp_record.get('email') != authorized_email):
+            return jsonify({'error': 'RSVP not found.'}), 404
+        rsvp_record.update({
+            'party_names': party_names,
+            'attending': attending,
+            'party_size': party_size,
+            'email': email,
+            'updated_at': now
+        })
+        container.replace_item(item=rsvp_id, body=rsvp_record)
+        session.pop('editable_rsvp_id', None)
+        session.pop('editable_rsvp_email', None)
+        send_rsvp_notification_email(rsvp_record, is_update=True)
+        return jsonify({'success': True, 'message': 'Your RSVP has been updated.'})
+
+    if find_rsvp_by_email(container, email):
+        return jsonify({
+            'error': 'An RSVP already exists for this email. Use Change RSVP instead.'
+        }), 409
+
+    rsvp_record = {
+        'id': str(uuid.uuid4()),
+        'document_type': 'rsvp',
+        'party_names': party_names,
+        'attending': attending,
+        'party_size': party_size,
+        'email': email,
+        'created_at': now,
+        'updated_at': now
+    }
+    container.create_item(body=rsvp_record)
+    send_rsvp_notification_email(rsvp_record, is_update=False)
+    return jsonify({
+        'success': True,
+        'message': 'Thank you. Your RSVP has been received.'
+    }), 201
+
+
+@app.route('/api/rsvp/lookup', methods=['POST'])
+def lookup_rsvp():
+    """Look up an RSVP by email and authorize editing it in this session."""
+    data = request.get_json(silent=True) or {}
+    if not validate_captcha('lookup', data.get('captcha'), data.get('website')):
+        return jsonify({'error': 'Bot verification failed. Please try again.'}), 400
+
+    email = normalize_email(data.get('email'))
+    if not email:
+        return jsonify({'error': 'Please provide a valid email address.'}), 400
+
+    container = get_response_container()
+    if not container:
+        return jsonify({'error': 'The RSVP system is unavailable. Please try again.'}), 503
+
+    rsvp_record = find_rsvp_by_email(container, email)
+    if not rsvp_record:
+        return jsonify({
+            'error': 'No RSVP was found for that email. Please contact us for help.'
+        }), 404
+
+    session['editable_rsvp_id'] = rsvp_record['id']
+    session['editable_rsvp_email'] = email
+    return jsonify({'success': True, 'rsvp': {
+        'party_names': rsvp_record.get('party_names', ''),
+        'attending': rsvp_record.get('attending', ''),
+        'party_size': rsvp_record.get('party_size', 1),
+        'email': rsvp_record.get('email', '')
+    }})
+
+
+@app.route('/api/captcha/<purpose>')
+def refresh_captcha(purpose):
+    """Return a fresh bot challenge for an RSVP modal."""
+    if purpose not in {'rsvp', 'lookup'}:
+        return jsonify({'error': 'Unknown verification purpose.'}), 404
+    return jsonify({'question': create_captcha(purpose)})
+
+
+@app.route('/contact', methods=['GET', 'POST'])
+def contact():
+    """Display and process the contact form."""
+    if request.method == 'GET':
+        return render_template('contact.html', captcha=create_captcha('contact'))
+
+    if not validate_captcha(
+            'contact', request.form.get('captcha'), request.form.get('website')):
+        flash('Bot verification failed. Please try again.', 'error')
+        return redirect(url_for('contact'))
+
+    name = request.form.get('name', '').strip()
+    email = normalize_email(request.form.get('email'))
+    note = request.form.get('note', '').strip()
+    if not name or len(name) > 200 or not email or not note or len(note) > 5000:
+        flash('Please provide a valid name, email address, and note.', 'error')
+        return redirect(url_for('contact'))
+
+    container = get_response_container()
+    if not container:
+        flash('The contact form is unavailable. Please try again later.', 'error')
+        return redirect(url_for('contact'))
+
+    message_record = {
+        'id': str(uuid.uuid4()),
+        'document_type': 'contact',
+        'name': name,
+        'email': email,
+        'note': note,
+        'created_at': datetime.now(timezone.utc).isoformat()
+    }
+    container.create_item(body=message_record)
+    send_contact_notification_email(message_record)
+    flash('Your message has been sent. We will be in touch soon.', 'success')
+    return redirect(url_for('contact'))
 
 @app.route('/venue')
 def venue():
@@ -478,13 +708,14 @@ def send_email_via_azure(to_email, subject, body, from_email=None):
                 app.logger.info(f"📤 Using configured from address: {from_email}")
         
         app.logger.info(f"📤 From: {from_email}")
-        app.logger.info(f"📨 To: {to_email}")
+        recipients = to_email if isinstance(to_email, list) else [to_email]
+        app.logger.info(f"📨 To: {', '.join(recipients)}")
         
         # Create the email message
         message = {
             "senderAddress": from_email,
             "recipients": {
-                "to": [{"address": to_email}]
+                "to": [{"address": recipient} for recipient in recipients]
             },
             "content": {
                 "subject": subject,
@@ -518,6 +749,65 @@ def send_email_via_azure(to_email, subject, body, from_email=None):
             app.logger.error("💡 Fix: Verify your EMAIL_FROM_ADDRESS matches your linked domain")
         
         return False
+
+
+def get_notification_recipients():
+    """Return the unique email recipients for wedding form notifications."""
+    configured_recipients = os.environ.get(
+        'EMAIL_TO_ADDRESS', 'bp32795@gmail.com').split(',')
+    recipients = [recipient.strip() for recipient in configured_recipients]
+    recipients.append('sofiavacca97@gmail.com')
+    return list(dict.fromkeys(recipient for recipient in recipients if recipient))
+
+
+def send_couple_notification(subject, body):
+    """Send a form notification to both members of the couple."""
+    recipients = get_notification_recipients()
+    if os.environ.get('AZURE_COMMUNICATION_CONNECTION_STRING'):
+        if send_email_via_azure(recipients, subject, body):
+            return True
+
+    try:
+        if (app.config.get('MAIL_USERNAME') and
+                not app.config.get('MAIL_SUPPRESS_SEND')):
+            mail.send(Message(
+                subject=subject,
+                recipients=recipients,
+                sender=app.config['MAIL_DEFAULT_SENDER'],
+                body=body
+            ))
+            return True
+    except Exception as error:
+        app.logger.error(f"Error sending form notification: {error}")
+    return False
+
+
+def send_rsvp_notification_email(data, is_update=False):
+    """Email the couple when an RSVP is created or changed."""
+    action = 'Updated RSVP' if is_update else 'New RSVP'
+    attendance = 'Yes' if data['attending'] == 'yes' else 'No'
+    body = (
+        f"{action} received.\n\n"
+        f"Party names: {data['party_names']}\n"
+        f"Attending: {attendance}\n"
+        f"Party size: {data['party_size']}\n"
+        f"Email: {data['email']}\n"
+        f"Submitted: {data['updated_at']}"
+    )
+    return send_couple_notification(
+        f"{action}: {data['party_names']}", body)
+
+
+def send_contact_notification_email(data):
+    """Email the couple when a contact form message is submitted."""
+    body = (
+        "A new contact message was received.\n\n"
+        f"Name: {data['name']}\n"
+        f"Email: {data['email']}\n"
+        f"Note: {data['note']}\n"
+        f"Submitted: {data['created_at']}"
+    )
+    return send_couple_notification(f"Wedding website message from {data['name']}", body)
 
 def send_registry_notification_email(data):
     """

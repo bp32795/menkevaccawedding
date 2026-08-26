@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Contact Us - Menke & Vacca Wedding{% endblock %}
+
+{% block extra_css %}
+<style>
+    .contact-section {
+        background: var(--light-bg);
+    }
+
+    .contact-form {
+        max-width: 720px;
+        margin: 0 auto;
+    }
+
+    .bot-field {
+        position: absolute;
+        left: -10000px;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="hero-section" style="padding: 150px 0 100px;">
+    <div class="container">
+        <h1 class="hero-title">Contact Us</h1>
+        <p class="hero-subtitle">Send Brandon and Sofia a note.</p>
+    </div>
+</section>
+
+<section class="section-padding contact-section">
+    <div class="container">
+        <form class="contact-form" method="POST" action="{{ url_for('contact') }}">
+            <div class="mb-4">
+                <label class="form-label fw-bold" for="name">Name</label>
+                <input class="form-control" type="text" id="name" name="name"
+                       maxlength="200" autocomplete="name" required>
+            </div>
+            <div class="mb-4">
+                <label class="form-label fw-bold" for="email">Email</label>
+                <input class="form-control" type="email" id="email" name="email"
+                       maxlength="254" autocomplete="email" required>
+            </div>
+            <div class="mb-4">
+                <label class="form-label fw-bold" for="note">Note</label>
+                <textarea class="form-control" id="note" name="note" rows="6"
+                          maxlength="5000" required></textarea>
+            </div>
+            <div class="mb-4">
+                <label class="form-label fw-bold" for="captcha">{{ captcha }}</label>
+                <input class="form-control" type="number" id="captcha" name="captcha"
+                       inputmode="numeric" required>
+                <div class="form-text">A quick check to prevent automated messages.</div>
+            </div>
+            <div class="bot-field" aria-hidden="true">
+                <label for="website">Website</label>
+                <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+            </div>
+            <button class="btn btn-primary btn-lg" type="submit">
+                <i class="fas fa-paper-plane me-2" aria-hidden="true"></i>Send Message
+            </button>
+        </form>
+    </div>
+</section>
+{% endblock %}

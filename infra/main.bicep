@@ -131,6 +131,23 @@ resource cosmosContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/con
   }
 }
 
+resource responseContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2023-11-15' = {
+  parent: cosmosDatabase
+  name: 'wedding-responses'
+  properties: {
+    resource: {
+      id: 'wedding-responses'
+      partitionKey: {
+        paths: ['/id']
+        kind: 'Hash'
+      }
+    }
+    options: {
+      throughput: 400
+    }
+  }
+}
+
 // ──────────────────────────────────────────────
 // Azure OpenAI (AI Foundry)
 // ──────────────────────────────────────────────

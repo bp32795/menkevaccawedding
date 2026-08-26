@@ -12,7 +12,7 @@ import os
 # Add the parent directory to the path so we can import app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app import app, scrape_title_from_url
+from app import app, get_notification_recipients, scrape_title_from_url
 
 
 class WeddingWebsiteTestCase(unittest.TestCase):
@@ -83,19 +83,186 @@ class HomePageTestCase(WeddingWebsiteTestCase):
 
 class RSVPPageTestCase(WeddingWebsiteTestCase):
     """Test cases for the RSVP page"""
-    
+
     def test_rsvp_page_loads(self):
         """Test that RSVP page loads successfully"""
         response = self.client.get('/rsvp')
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b'RSVP', response.data)
-        self.assertIn(b'Coming Soon', response.data)
-    
-    def test_rsvp_placeholder_content(self):
-        """Test that placeholder content is displayed"""
-        response = self.client.get('/rsvp')
-        self.assertIn(b'RSVP Form Coming Soon', response.data)
-        self.assertIn(b'bp32795@gmail.com', response.data)
+        self.assertIn(b'Click Here to RSVP', response.data)
+        self.assertIn(b'Change RSVP', response.data)
+
+    @patch('app.send_rsvp_notification_email')
+    @patch('app.get_response_container')
+    def test_submit_rsvp_stores_response_and_sends_email(
+            self, mock_get_container, mock_send_email):
+        """A valid RSVP is stored and emailed to the couple."""
+        mock_container = Mock()
+        mock_container.query_items.return_value = []
+        mock_get_container.return_value = mock_container
+
+        with self.client.session_transaction() as session_data:
+            session_data['captcha_rsvp'] = 7
+
+        response = self.client.post('/api/rsvp', json={
+            'party_names': 'Taylor Smith, Jordan Smith',
+            'attending': 'yes',
+            'party_size': 2,
+            'email': 'Taylor@example.com',
+            'captcha': '7',
+            'website': ''
+        })
+
+        self.assertEqual(response.status_code, 201)
+        stored_rsvp = mock_container.create_item.call_args.kwargs['body']
+        self.assertEqual(stored_rsvp['document_type'], 'rsvp')
+        self.assertEqual(stored_rsvp['email'], 'taylor@example.com')
+        self.assertEqual(stored_rsvp['party_size'], 2)
+        mock_send_email.assert_called_once_with(stored_rsvp, is_update=False)
+
+    @patch('app.get_response_container')
+    def test_submit_rsvp_rejects_duplicate_email(self, mock_get_container):
+        """A second new RSVP cannot overwrite an existing email."""
+        mock_container = Mock()
+        mock_container.query_items.return_value = [{'id': 'existing'}]
+        mock_get_container.return_value = mock_container
+
+        with self.client.session_transaction() as session_data:
+            session_data['captcha_rsvp'] = 4
+
+        response = self.client.post('/api/rsvp', json={
+            'party_names': 'Taylor Smith',
+            'attending': 'no',
+            'party_size': 1,
+            'email': 'taylor@example.com',
+            'captcha': '4',
+            'website': ''
+        })
+
+        self.assertEqual(response.status_code, 409)
+        mock_container.create_item.assert_not_called()
+
+    @patch('app.get_response_container')
+    def test_lookup_rsvp_returns_previous_information(self, mock_get_container):
+        """Email lookup returns the saved RSVP and authorizes one edit."""
+        saved_rsvp = {
+            'id': 'rsvp-1',
+            'document_type': 'rsvp',
+            'party_names': 'Taylor Smith',
+            'attending': 'yes',
+            'party_size': 1,
+            'email': 'taylor@example.com'
+        }
+        mock_container = Mock()
+        mock_container.query_items.return_value = [saved_rsvp]
+        mock_get_container.return_value = mock_container
+
+        with self.client.session_transaction() as session_data:
+            session_data['captcha_lookup'] = 9
+
+        response = self.client.post('/api/rsvp/lookup', json={
+            'email': 'Taylor@example.com',
+            'captcha': '9',
+            'website': ''
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()['rsvp']['party_names'], 'Taylor Smith')
+        with self.client.session_transaction() as session_data:
+            self.assertEqual(session_data['editable_rsvp_id'], 'rsvp-1')
+
+    @patch('app.send_rsvp_notification_email')
+    @patch('app.get_response_container')
+    def test_change_rsvp_updates_authorized_record(
+            self, mock_get_container, mock_send_email):
+        """A lookup-authorized RSVP edit updates only that record."""
+        mock_container = Mock()
+        mock_container.read_item.return_value = {
+            'id': 'rsvp-1',
+            'document_type': 'rsvp',
+            'email': 'taylor@example.com',
+            'created_at': '2026-08-01T00:00:00+00:00'
+        }
+        mock_get_container.return_value = mock_container
+
+        with self.client.session_transaction() as session_data:
+            session_data['editable_rsvp_id'] = 'rsvp-1'
+            session_data['editable_rsvp_email'] = 'taylor@example.com'
+
+        response = self.client.post('/api/rsvp', json={
+            'party_names': 'Taylor Smith, Jordan Smith',
+            'attending': 'yes',
+            'party_size': 2,
+            'email': 'taylor@example.com',
+            'is_update': True,
+            'website': ''
+        })
+
+        self.assertEqual(response.status_code, 200)
+        updated_rsvp = mock_container.replace_item.call_args.kwargs['body']
+        self.assertEqual(updated_rsvp['party_size'], 2)
+        mock_send_email.assert_called_once_with(updated_rsvp, is_update=True)
+
+    def test_submit_rsvp_rejects_invalid_captcha(self):
+        """A new RSVP requires the server-generated bot challenge."""
+        with self.client.session_transaction() as session_data:
+            session_data['captcha_rsvp'] = 6
+
+        response = self.client.post('/api/rsvp', json={
+            'party_names': 'Taylor Smith',
+            'attending': 'yes',
+            'party_size': 1,
+            'email': 'taylor@example.com',
+            'captcha': '99',
+            'website': ''
+        })
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('verification', response.get_json()['error'].lower())
+
+
+class ContactPageTestCase(WeddingWebsiteTestCase):
+    """Test cases for the contact form."""
+
+    def test_contact_page_loads(self):
+        """The contact page displays all requested fields."""
+        response = self.client.get('/contact')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Contact Us', response.data)
+        self.assertIn(b'Name', response.data)
+        self.assertIn(b'Email', response.data)
+        self.assertIn(b'Note', response.data)
+
+    @patch('app.send_contact_notification_email')
+    @patch('app.get_response_container')
+    def test_contact_submission_is_stored_and_emailed(
+            self, mock_get_container, mock_send_email):
+        """A valid contact message is persisted and emailed."""
+        mock_container = Mock()
+        mock_get_container.return_value = mock_container
+
+        with self.client.session_transaction() as session_data:
+            session_data['captcha_contact'] = 5
+
+        response = self.client.post('/contact', data={
+            'name': 'Taylor Smith',
+            'email': 'taylor@example.com',
+            'note': 'I forgot which email I used for my RSVP.',
+            'captcha': '5',
+            'website': ''
+        })
+
+        self.assertEqual(response.status_code, 302)
+        stored_message = mock_container.create_item.call_args.kwargs['body']
+        self.assertEqual(stored_message['document_type'], 'contact')
+        mock_send_email.assert_called_once_with(stored_message)
+
+    @patch.dict(os.environ, {'EMAIL_TO_ADDRESS': 'bp32795@gmail.com'})
+    def test_form_notifications_include_both_recipients(self):
+        """Wedding form notifications always include Brandon and Sofia."""
+        recipients = get_notification_recipients()
+
+        self.assertIn('bp32795@gmail.com', recipients)
+        self.assertIn('sofiavacca97@gmail.com', recipients)
 
 
 class VenuePageTestCase(WeddingWebsiteTestCase):

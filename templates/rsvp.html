@@ -2,171 +2,308 @@
 
 {% block title %}RSVP - Menke & Vacca Wedding{% endblock %}
 
+{% block extra_css %}
+<style>
+    .rsvp-actions {
+        background: var(--light-bg);
+    }
+
+    .rsvp-panel {
+        max-width: 760px;
+        margin: 0 auto;
+        text-align: center;
+    }
+
+    .rsvp-icon {
+        color: var(--primary-color);
+        font-size: 2.75rem;
+    }
+
+    .modal-content {
+        border: 0;
+        border-radius: 8px;
+    }
+
+    .modal-header {
+        border-bottom-color: var(--secondary-color);
+    }
+
+    .bot-field {
+        position: absolute;
+        left: -10000px;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+    }
+
+    .form-status:empty {
+        display: none;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<!-- RSVP Hero Section -->
 <section class="hero-section" style="padding: 150px 0 100px;">
     <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-lg-8 text-center">
-                <h1 class="hero-title">RSVP</h1>
-                <p class="hero-subtitle">We're excited to celebrate with you!</p>
+        <h1 class="hero-title">RSVP</h1>
+        <p class="hero-subtitle">We cannot wait to celebrate with you on January 1st, 2027.</p>
+    </div>
+</section>
+
+<section class="section-padding rsvp-actions">
+    <div class="container">
+        <div class="rsvp-panel">
+            <i class="fas fa-envelope-open-text rsvp-icon mb-4" aria-hidden="true"></i>
+            <h2 class="section-title mb-3">Let Us Know Your Plans</h2>
+            <p class="lead mb-4">
+                Please respond for everyone in your party. You can return later and make changes
+                using the same email address.
+            </p>
+            <div class="d-flex flex-column flex-sm-row justify-content-center gap-3">
+                <button class="btn btn-primary btn-lg" type="button" data-bs-toggle="modal"
+                        data-bs-target="#rsvpModal" id="newRsvpButton">
+                    <i class="fas fa-check me-2" aria-hidden="true"></i>Click Here to RSVP
+                </button>
+                <button class="btn btn-outline-primary btn-lg" type="button" data-bs-toggle="modal"
+                        data-bs-target="#lookupModal">
+                    <i class="fas fa-pen me-2" aria-hidden="true"></i>Change RSVP
+                </button>
             </div>
+            <p class="mt-4 mb-0 text-muted">
+                Forgot which email you used? <a href="{{ url_for('contact') }}">Contact us</a>.
+            </p>
         </div>
     </div>
 </section>
 
-<!-- RSVP Form Section -->
-<section class="section-padding">
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-lg-8">
-                <div class="card">
-                    <div class="card-body p-5">
-                        <h3 class="serif-font text-center mb-4">Please Respond by [Date TBD]</h3>
-                        
-                        <!-- RSVP form will be configured later -->
-                        <div class="text-center py-5">
-                            <i class="fas fa-cog fa-3x text-muted mb-3"></i>
-                            <h4 class="text-muted">RSVP Form Coming Soon</h4>
-                            <p class="text-muted">We're currently setting up our RSVP system. Please check back soon!</p>
-                            <p class="mt-4">
-                                <strong>In the meantime, you can reach out to us directly:</strong><br>
-                                <i class="fas fa-envelope me-2"></i>
-                                <a href="mailto:bp32795@gmail.com">bp32795@gmail.com</a>
-                            </p>
-                        </div>
-                        
-                        <!-- Placeholder form structure for future implementation -->
-                        <div class="d-none">
-                            <form id="rsvpForm" method="POST">
-                                <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <label for="firstName" class="form-label">First Name *</label>
-                                        <input type="text" class="form-control" id="firstName" name="firstName" required>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label for="lastName" class="form-label">Last Name *</label>
-                                        <input type="text" class="form-control" id="lastName" name="lastName" required>
-                                    </div>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label for="email" class="form-label">Email Address *</label>
-                                    <input type="email" class="form-control" id="email" name="email" required>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label for="phone" class="form-label">Phone Number</label>
-                                    <input type="tel" class="form-control" id="phone" name="phone">
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label class="form-label">Will you be attending? *</label>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="attending" id="attendingYes" value="yes" required>
-                                        <label class="form-check-label" for="attendingYes">
-                                            Yes, I'll be there!
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="attending" id="attendingNo" value="no" required>
-                                        <label class="form-check-label" for="attendingNo">
-                                            Sorry, I can't make it
-                                        </label>
-                                    </div>
-                                </div>
-                                
-                                <div class="mb-3" id="guestCountSection" style="display: none;">
-                                    <label for="guestCount" class="form-label">Number of Guests (including yourself)</label>
-                                    <select class="form-select" id="guestCount" name="guestCount">
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
-                                        <option value="4">4</option>
-                                    </select>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label for="dietaryRestrictions" class="form-label">Dietary Restrictions or Special Requests</label>
-                                    <textarea class="form-control" id="dietaryRestrictions" name="dietaryRestrictions" rows="3" placeholder="Please let us know of any dietary restrictions, allergies, or special accommodations needed."></textarea>
-                                </div>
-                                
-                                <div class="mb-3">
-                                    <label for="message" class="form-label">Special Message (Optional)</label>
-                                    <textarea class="form-control" id="message" name="message" rows="3" placeholder="Share a special message with the happy couple!"></textarea>
-                                </div>
-                                
-                                <div class="text-center">
-                                    <button type="submit" class="btn btn-primary btn-lg">
-                                        <i class="fas fa-paper-plane me-2"></i>Send RSVP
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
+<div class="modal fade" id="rsvpModal" tabindex="-1" aria-labelledby="rsvpModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title h4 serif-font" id="rsvpModalLabel">Submit RSVP</h2>
+                    <p class="text-muted mb-0" id="rsvpModeMessage">Tell us who will be celebrating with us.</p>
                 </div>
-                
-                <!-- Wedding Details -->
-                <div class="row mt-5">
-                    <div class="col-md-6">
-                        <div class="card h-100">
-                            <div class="card-body text-center">
-                                <i class="fas fa-calendar-alt fa-2x text-primary mb-3"></i>
-                                <h5 class="serif-font">When</h5>
-                                <p class="text-muted">Date & Time TBD</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="card h-100">
-                            <div class="card-body text-center">
-                                <i class="fas fa-map-marker-alt fa-2x text-primary mb-3"></i>
-                                <h5 class="serif-font">Where</h5>
-                                <p class="text-muted">Venue TBD</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
+            <form id="rsvpForm" novalidate>
+                <div class="modal-body p-4">
+                    <div class="mb-4">
+                        <label for="partyNames" class="form-label fw-bold">
+                            Who are you responding for?
+                        </label>
+                        <textarea class="form-control" id="partyNames" rows="3" maxlength="1000"
+                                  placeholder="Please put all the names of your party." required></textarea>
+                        <div class="invalid-feedback">Please list everyone in your party.</div>
+                    </div>
+
+                    <fieldset class="mb-4">
+                        <legend class="form-label fw-bold">
+                            Will you and your party be attending?
+                        </legend>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="attending"
+                                   id="attendingYes" value="yes" required>
+                            <label class="form-check-label" for="attendingYes">Yes, we will be there</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="attending"
+                                   id="attendingNo" value="no" required>
+                            <label class="form-check-label" for="attendingNo">No, we cannot attend</label>
+                        </div>
+                    </fieldset>
+
+                    <div class="mb-4">
+                        <label for="partySize" class="form-label fw-bold">How many are in your party?</label>
+                        <input class="form-control" type="number" id="partySize" min="1" max="20" required>
+                        <div class="invalid-feedback">Enter a party size between 1 and 20.</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="rsvpEmail" class="form-label fw-bold">Email address</label>
+                        <input class="form-control" type="email" id="rsvpEmail" maxlength="254" required>
+                        <div class="form-text">
+                            Please provide an email address in order to make changes to your RSVP later.
+                        </div>
+                        <div class="invalid-feedback">Enter a valid email address.</div>
+                    </div>
+
+                    <div class="mb-3" id="rsvpCaptchaGroup">
+                        <label for="rsvpCaptcha" class="form-label fw-bold" id="rsvpCaptchaQuestion">
+                            {{ rsvp_captcha }}
+                        </label>
+                        <input class="form-control" type="number" id="rsvpCaptcha" inputmode="numeric" required>
+                        <div class="form-text">A quick check to prevent automated submissions.</div>
+                    </div>
+
+                    <div class="bot-field" aria-hidden="true">
+                        <label for="rsvpWebsite">Website</label>
+                        <input type="text" id="rsvpWebsite" tabindex="-1" autocomplete="off">
+                    </div>
+                    <div class="alert form-status" id="rsvpStatus" role="alert"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="rsvpSubmitButton">
+                        <i class="fas fa-paper-plane me-2" aria-hidden="true"></i>Submit RSVP
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
-</section>
+</div>
+
+<div class="modal fade" id="lookupModal" tabindex="-1" aria-labelledby="lookupModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h4 serif-font" id="lookupModalLabel">Change RSVP</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="lookupForm" novalidate>
+                <div class="modal-body p-4">
+                    <p>Enter the email address used for your RSVP.</p>
+                    <div class="mb-4">
+                        <label for="lookupEmail" class="form-label fw-bold">Email address</label>
+                        <input class="form-control" type="email" id="lookupEmail" maxlength="254" required>
+                        <div class="invalid-feedback">Enter a valid email address.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="lookupCaptcha" class="form-label fw-bold" id="lookupCaptchaQuestion">
+                            {{ lookup_captcha }}
+                        </label>
+                        <input class="form-control" type="number" id="lookupCaptcha" inputmode="numeric" required>
+                    </div>
+                    <div class="bot-field" aria-hidden="true">
+                        <label for="lookupWebsite">Website</label>
+                        <input type="text" id="lookupWebsite" tabindex="-1" autocomplete="off">
+                    </div>
+                    <div class="alert form-status" id="lookupStatus" role="alert"></div>
+                    <p class="small text-muted mb-0">
+                        Cannot remember the email? <a href="{{ url_for('contact') }}">Contact us for help</a>.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search me-2" aria-hidden="true"></i>Find My RSVP
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Show/hide guest count based on attendance
 document.addEventListener('DOMContentLoaded', function() {
-    const attendingInputs = document.querySelectorAll('input[name="attending"]');
-    const guestCountSection = document.getElementById('guestCountSection');
-    
-    attendingInputs.forEach(input => {
-        input.addEventListener('change', function() {
-            if (this.value === 'yes') {
-                guestCountSection.style.display = 'block';
-            } else {
-                guestCountSection.style.display = 'none';
-            }
-        });
-    });
-    
-    // RSVP form submission (when enabled)
     const rsvpForm = document.getElementById('rsvpForm');
-    if (rsvpForm) {
-        rsvpForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // Form validation
-            if (!this.checkValidity()) {
-                e.stopPropagation();
-                this.classList.add('was-validated');
-                return;
-            }
-            
-            // TODO: Submit form data to backend
-            showToast('Thank you for your RSVP! We\'ll be in touch soon.', 'success');
-        });
+    const lookupForm = document.getElementById('lookupForm');
+    const rsvpModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('rsvpModal'));
+    const lookupModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('lookupModal'));
+    let isUpdate = false;
+
+    function setStatus(element, message, success) {
+        element.textContent = message;
+        element.className = `alert form-status alert-${success ? 'success' : 'danger'}`;
     }
+
+    async function refreshCaptcha(purpose) {
+        const response = await fetch(`/api/captcha/${purpose}`);
+        const data = await response.json();
+        document.getElementById(`${purpose}CaptchaQuestion`).textContent = data.question;
+        document.getElementById(`${purpose}Captcha`).value = '';
+    }
+
+    document.getElementById('newRsvpButton').addEventListener('click', function() {
+        isUpdate = false;
+        rsvpForm.reset();
+        rsvpForm.classList.remove('was-validated');
+        document.getElementById('rsvpStatus').textContent = '';
+        document.getElementById('rsvpModalLabel').textContent = 'Submit RSVP';
+        document.getElementById('rsvpModeMessage').textContent = 'Tell us who will be celebrating with us.';
+        document.getElementById('rsvpSubmitButton').lastChild.textContent = 'Submit RSVP';
+        document.getElementById('rsvpCaptchaGroup').classList.remove('d-none');
+        document.getElementById('rsvpCaptcha').required = true;
+        refreshCaptcha('rsvp');
+    });
+
+    rsvpForm.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        if (!rsvpForm.checkValidity()) {
+            rsvpForm.classList.add('was-validated');
+            return;
+        }
+
+        const selectedAttendance = document.querySelector('input[name="attending"]:checked');
+        const response = await fetch('/api/rsvp', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                party_names: document.getElementById('partyNames').value,
+                attending: selectedAttendance ? selectedAttendance.value : '',
+                party_size: document.getElementById('partySize').value,
+                email: document.getElementById('rsvpEmail').value,
+                captcha: document.getElementById('rsvpCaptcha').value,
+                website: document.getElementById('rsvpWebsite').value,
+                is_update: isUpdate
+            })
+        });
+        const data = await response.json();
+        setStatus(document.getElementById('rsvpStatus'), data.message || data.error, response.ok);
+        if (response.ok) {
+            rsvpForm.reset();
+            setTimeout(function() {
+                rsvpModal.hide();
+                showToast(data.message, 'success');
+            }, 900);
+        } else if (!isUpdate) {
+            refreshCaptcha('rsvp');
+        }
+    });
+
+    lookupForm.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        if (!lookupForm.checkValidity()) {
+            lookupForm.classList.add('was-validated');
+            return;
+        }
+
+        const response = await fetch('/api/rsvp/lookup', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                email: document.getElementById('lookupEmail').value,
+                captcha: document.getElementById('lookupCaptcha').value,
+                website: document.getElementById('lookupWebsite').value
+            })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            setStatus(document.getElementById('lookupStatus'), data.error, false);
+            refreshCaptcha('lookup');
+            return;
+        }
+
+        isUpdate = true;
+        rsvpForm.reset();
+        document.getElementById('partyNames').value = data.rsvp.party_names;
+        document.getElementById('partySize').value = data.rsvp.party_size;
+        document.getElementById('rsvpEmail').value = data.rsvp.email;
+        const attendance = document.querySelector(
+            `input[name="attending"][value="${data.rsvp.attending}"]`
+        );
+        if (attendance) attendance.checked = true;
+        document.getElementById('rsvpModalLabel').textContent = 'Update RSVP';
+        document.getElementById('rsvpModeMessage').textContent = 'Review and update your saved response.';
+        document.getElementById('rsvpSubmitButton').lastChild.textContent = 'Update RSVP';
+        document.getElementById('rsvpCaptchaGroup').classList.add('d-none');
+        document.getElementById('rsvpCaptcha').required = false;
+        document.getElementById('rsvpStatus').textContent = '';
+        lookupModal.hide();
+        setTimeout(function() { rsvpModal.show(); }, 250);
+    });
 });
 </script>
 {% endblock %}

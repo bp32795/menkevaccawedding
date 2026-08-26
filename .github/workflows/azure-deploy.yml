@@ -8,6 +8,7 @@ on:
 
 env:
   AZURE_WEBAPP_NAME: menkevaccawedding
+  AZURE_TEST_WEBAPP_NAME: menkevaccawedding-test
   PYTHON_VERSION: '3.11'
 
 jobs:
@@ -45,9 +46,35 @@ jobs:
           .
           !venv/
 
-  deploy:
+  deploy-test:
+    name: Deploy to test
     runs-on: ubuntu-latest
     needs: build
+
+    steps:
+    - name: Download artifact from build job
+      uses: actions/download-artifact@v4
+      with:
+        name: python-app
+        path: .
+
+    - name: 'Login to Azure'
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: 'Deploy to Azure Test Web App'
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_TEST_WEBAPP_NAME }}
+
+    - name: Smoke test
+      run: curl --fail --retry 5 --retry-delay 10 https://test.menkexvacca.com/
+
+  deploy-production:
+    name: Deploy to production (approval required)
+    runs-on: ubuntu-latest
+    needs: deploy-test
     environment:
       name: 'Production'
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
