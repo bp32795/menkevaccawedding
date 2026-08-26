@@ -90,7 +90,8 @@
                 <div class="modal-body p-4">
                     <div class="mb-4">
                         <label for="partyNames" class="form-label fw-bold">
-                            Who are you responding for?
+                            Who are you responding for? <span class="text-danger" aria-hidden="true">*</span>
+                            <span class="visually-hidden">Required</span>
                         </label>
                         <textarea class="form-control" id="partyNames" rows="3" maxlength="1000"
                                   placeholder="Please put all the names of your party." required></textarea>
@@ -100,6 +101,8 @@
                     <fieldset class="mb-4">
                         <legend class="form-label fw-bold">
                             Will you and your party be attending?
+                            <span class="text-danger" aria-hidden="true">*</span>
+                            <span class="visually-hidden">Required</span>
                         </legend>
                         <div class="form-check">
                             <input class="form-check-input" type="radio" name="attending"
@@ -114,13 +117,19 @@
                     </fieldset>
 
                     <div class="mb-4">
-                        <label for="partySize" class="form-label fw-bold">How many are in your party?</label>
+                        <label for="partySize" class="form-label fw-bold">
+                            How many are in your party? <span class="text-danger" aria-hidden="true">*</span>
+                            <span class="visually-hidden">Required</span>
+                        </label>
                         <input class="form-control" type="number" id="partySize" min="1" max="20" required>
                         <div class="invalid-feedback">Enter a party size between 1 and 20.</div>
                     </div>
 
                     <div class="mb-4">
-                        <label for="rsvpEmail" class="form-label fw-bold">Email address</label>
+                        <label for="rsvpEmail" class="form-label fw-bold">
+                            Email address <span class="text-danger" aria-hidden="true">*</span>
+                            <span class="visually-hidden">Required</span>
+                        </label>
                         <input class="form-control" type="email" id="rsvpEmail" maxlength="254" required>
                         <div class="form-text">
                             Please provide an email address in order to make changes to your RSVP later.
@@ -129,8 +138,10 @@
                     </div>
 
                     <div class="mb-3" id="rsvpCaptchaGroup">
-                        <label for="rsvpCaptcha" class="form-label fw-bold" id="rsvpCaptchaQuestion">
-                            {{ rsvp_captcha }}
+                        <label for="rsvpCaptcha" class="form-label fw-bold">
+                            <span id="rsvpCaptchaQuestion">{{ rsvp_captcha }}</span>
+                            <span class="text-danger" aria-hidden="true">*</span>
+                            <span class="visually-hidden">Required</span>
                         </label>
                         <input class="form-control" type="number" id="rsvpCaptcha" inputmode="numeric" required>
                         <div class="form-text">A quick check to prevent automated submissions.</div>
@@ -164,13 +175,18 @@
                 <div class="modal-body p-4">
                     <p>Enter the email address used for your RSVP.</p>
                     <div class="mb-4">
-                        <label for="lookupEmail" class="form-label fw-bold">Email address</label>
+                        <label for="lookupEmail" class="form-label fw-bold">
+                            Email address <span class="text-danger" aria-hidden="true">*</span>
+                            <span class="visually-hidden">Required</span>
+                        </label>
                         <input class="form-control" type="email" id="lookupEmail" maxlength="254" required>
                         <div class="invalid-feedback">Enter a valid email address.</div>
                     </div>
                     <div class="mb-3">
-                        <label for="lookupCaptcha" class="form-label fw-bold" id="lookupCaptchaQuestion">
-                            {{ lookup_captcha }}
+                        <label for="lookupCaptcha" class="form-label fw-bold">
+                            <span id="lookupCaptchaQuestion">{{ lookup_captcha }}</span>
+                            <span class="text-danger" aria-hidden="true">*</span>
+                            <span class="visually-hidden">Required</span>
                         </label>
                         <input class="form-control" type="number" id="lookupCaptcha" inputmode="numeric" required>
                     </div>

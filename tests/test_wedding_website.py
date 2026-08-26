@@ -91,6 +91,31 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Click Here to RSVP', response.data)
         self.assertIn(b'Change RSVP', response.data)
+        self.assertGreaterEqual(response.data.count(b'visually-hidden">Required'), 6)
+
+    @patch('app.get_response_container')
+    def test_submit_rsvp_requires_every_guest_field(self, mock_get_container):
+        """Each guest-facing RSVP field is required by the API."""
+        valid_data = {
+            'party_names': 'Taylor Smith',
+            'attending': 'yes',
+            'party_size': 1,
+            'email': 'taylor@example.com',
+            'captcha': '7',
+            'website': ''
+        }
+
+        for missing_field in ('party_names', 'attending', 'party_size', 'email'):
+            with self.subTest(missing_field=missing_field):
+                request_data = dict(valid_data)
+                request_data.pop(missing_field)
+                with self.client.session_transaction() as session_data:
+                    session_data['captcha_rsvp'] = 7
+
+                response = self.client.post('/api/rsvp', json=request_data)
+
+                self.assertEqual(response.status_code, 400)
+        mock_get_container.assert_not_called()
 
     @patch('app.send_guest_rsvp_confirmation')
     @patch('app.send_rsvp_notification_email')
