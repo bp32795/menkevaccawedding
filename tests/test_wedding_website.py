@@ -91,7 +91,9 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Click Here to RSVP', response.data)
         self.assertIn(b'Change RSVP', response.data)
-        self.assertGreaterEqual(response.data.count(b'visually-hidden">Required'), 6)
+        self.assertIn(b'Will you be attending the Welcome Party', response.data)
+        self.assertIn(b'href="https://share.google/7ZxWuUYoSVfMIMUnj"', response.data)
+        self.assertGreaterEqual(response.data.count(b'visually-hidden">Required'), 7)
 
     @patch('app.get_response_container')
     def test_submit_rsvp_requires_every_guest_field(self, mock_get_container):
@@ -99,13 +101,15 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         valid_data = {
             'party_names': 'Taylor Smith',
             'attending': 'yes',
+            'welcome_party': 'yes',
             'party_size': 1,
             'email': 'taylor@example.com',
             'captcha': '7',
             'website': ''
         }
 
-        for missing_field in ('party_names', 'attending', 'party_size', 'email'):
+        for missing_field in (
+                'party_names', 'attending', 'welcome_party', 'party_size', 'email'):
             with self.subTest(missing_field=missing_field):
                 request_data = dict(valid_data)
                 request_data.pop(missing_field)
@@ -133,6 +137,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         response = self.client.post('/api/rsvp', json={
             'party_names': 'Taylor Smith, Jordan Smith',
             'attending': 'yes',
+            'welcome_party': 'yes',
             'party_size': 2,
             'email': 'Taylor@example.com',
             'captcha': '7',
@@ -143,6 +148,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         stored_rsvp = mock_container.create_item.call_args.kwargs['body']
         self.assertEqual(stored_rsvp['document_type'], 'rsvp')
         self.assertEqual(stored_rsvp['email'], 'taylor@example.com')
+        self.assertEqual(stored_rsvp['welcome_party'], 'yes')
         self.assertEqual(stored_rsvp['party_size'], 2)
         mock_send_email.assert_called_once_with(stored_rsvp, is_update=False)
         mock_guest_email.assert_called_once()
@@ -162,6 +168,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         response = self.client.post('/api/rsvp', json={
             'party_names': 'Taylor Smith',
             'attending': 'no',
+            'welcome_party': 'no',
             'party_size': 1,
             'email': 'taylor@example.com',
             'captcha': '4',
@@ -179,6 +186,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
             'document_type': 'rsvp',
             'party_names': 'Taylor Smith',
             'attending': 'yes',
+            'welcome_party': 'no',
             'party_size': 1,
             'email': 'taylor@example.com'
         }
@@ -197,6 +205,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()['rsvp']['party_names'], 'Taylor Smith')
+        self.assertEqual(response.get_json()['rsvp']['welcome_party'], 'no')
         with self.client.session_transaction() as session_data:
             self.assertEqual(session_data['editable_rsvp_id'], 'rsvp-1')
 
@@ -222,6 +231,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         response = self.client.post('/api/rsvp', json={
             'party_names': 'Taylor Smith, Jordan Smith',
             'attending': 'yes',
+            'welcome_party': 'no',
             'party_size': 2,
             'email': 'taylor@example.com',
             'is_update': True,
@@ -230,6 +240,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
 
         self.assertEqual(response.status_code, 200)
         updated_rsvp = mock_container.replace_item.call_args.kwargs['body']
+        self.assertEqual(updated_rsvp['welcome_party'], 'no')
         self.assertEqual(updated_rsvp['party_size'], 2)
         mock_send_email.assert_called_once_with(updated_rsvp, is_update=True)
         mock_guest_email.assert_called_once()
@@ -243,6 +254,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
             'document_type': 'rsvp',
             'party_names': 'Taylor Smith, Jordan Smith',
             'attending': 'yes',
+            'welcome_party': 'yes',
             'party_size': 2,
             'email': 'taylor@example.com'
         }
@@ -255,6 +267,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Taylor Smith, Jordan Smith', response.data)
+        self.assertIn(b'"welcome_party": "yes"', response.data)
         with self.client.session_transaction() as session_data:
             self.assertEqual(session_data['editable_rsvp_id'], 'rsvp-1')
 
@@ -267,6 +280,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
             'id': 'rsvp-1',
             'party_names': 'Taylor Smith, Jordan Smith',
             'attending': 'yes',
+            'welcome_party': 'yes',
             'party_size': 2,
             'email': 'taylor@example.com'
         }
@@ -282,6 +296,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         self.assertEqual(subject, 'Your Menke & Vacca Wedding RSVP')
         self.assertIn('Thank you for your response!', plain_body)
         self.assertIn('Taylor Smith, Jordan Smith', plain_body)
+        self.assertIn('Welcome Party: Yes', plain_body)
         self.assertIn(edit_url, plain_body)
         self.assertIn(f'href="{edit_url}"', html_body)
         self.assertIn('Thanks,<br>Brandon and Sofie', html_body)

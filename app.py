@@ -495,6 +495,7 @@ def edit_rsvp_from_link(token):
         initial_rsvp={
             'party_names': rsvp_record.get('party_names', ''),
             'attending': rsvp_record.get('attending', ''),
+            'welcome_party': rsvp_record.get('welcome_party', ''),
             'party_size': rsvp_record.get('party_size', 1),
             'email': rsvp_record.get('email', '')
         }
@@ -515,6 +516,7 @@ def submit_rsvp():
 
     party_names = str(data.get('party_names') or '').strip()
     attending = str(data.get('attending') or '').strip().lower()
+    welcome_party = str(data.get('welcome_party') or '').strip().lower()
     email = normalize_email(data.get('email'))
     try:
         party_size = int(data.get('party_size'))
@@ -525,6 +527,10 @@ def submit_rsvp():
         return jsonify({'error': 'Please provide the names in your party.'}), 400
     if attending not in {'yes', 'no'}:
         return jsonify({'error': 'Please select whether your party will attend.'}), 400
+    if welcome_party not in {'yes', 'no'}:
+        return jsonify({
+            'error': 'Please select whether your party will attend the Welcome Party.'
+        }), 400
     if not 1 <= party_size <= 20:
         return jsonify({'error': 'Party size must be between 1 and 20.'}), 400
     if not email:
@@ -550,6 +556,7 @@ def submit_rsvp():
         rsvp_record.update({
             'party_names': party_names,
             'attending': attending,
+            'welcome_party': welcome_party,
             'party_size': party_size,
             'email': email,
             'updated_at': now
@@ -577,6 +584,7 @@ def submit_rsvp():
         'document_type': 'rsvp',
         'party_names': party_names,
         'attending': attending,
+        'welcome_party': welcome_party,
         'party_size': party_size,
         'email': email,
         'created_at': now,
@@ -623,6 +631,7 @@ def lookup_rsvp():
     return jsonify({'success': True, 'rsvp': {
         'party_names': rsvp_record.get('party_names', ''),
         'attending': rsvp_record.get('attending', ''),
+        'welcome_party': rsvp_record.get('welcome_party', ''),
         'party_size': rsvp_record.get('party_size', 1),
         'email': rsvp_record.get('email', '')
     }})
@@ -869,11 +878,13 @@ def send_couple_notification(subject, body):
 def send_guest_rsvp_confirmation(data, edit_url):
     """Send RSVP details and a signed edit link to the submitting guest."""
     attendance = 'Yes' if data['attending'] == 'yes' else 'No'
+    welcome_party = 'Yes' if data['welcome_party'] == 'yes' else 'No'
     subject = 'Your Menke & Vacca Wedding RSVP'
     plain_body = (
         "Thank you for your response! Please find your submission below:\n\n"
         f"Party names: {data['party_names']}\n"
         f"Attending: {attendance}\n"
+        f"Welcome Party: {welcome_party}\n"
         f"Party size: {data['party_size']}\n"
         f"Email: {data['email']}\n\n"
         f"Click here to change any details: {edit_url}\n\n"
@@ -888,6 +899,7 @@ def send_guest_rsvp_confirmation(data, edit_url):
         "<p>"
         f"<strong>Party names:</strong> {safe_party_names}<br>"
         f"<strong>Attending:</strong> {attendance}<br>"
+        f"<strong>Welcome Party:</strong> {welcome_party}<br>"
         f"<strong>Party size:</strong> {data['party_size']}<br>"
         f"<strong>Email:</strong> {safe_email}"
         "</p>"
@@ -921,10 +933,12 @@ def send_rsvp_notification_email(data, is_update=False):
     """Email the couple when an RSVP is created or changed."""
     action = 'Updated RSVP' if is_update else 'New RSVP'
     attendance = 'Yes' if data['attending'] == 'yes' else 'No'
+    welcome_party = 'Yes' if data['welcome_party'] == 'yes' else 'No'
     body = (
         f"{action} received.\n\n"
         f"Party names: {data['party_names']}\n"
         f"Attending: {attendance}\n"
+        f"Welcome Party: {welcome_party}\n"
         f"Party size: {data['party_size']}\n"
         f"Email: {data['email']}\n"
         f"Submitted: {data['updated_at']}"

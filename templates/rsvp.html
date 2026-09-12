@@ -116,6 +116,27 @@
                         </div>
                     </fieldset>
 
+                    <fieldset class="mb-4">
+                        <legend class="form-label fw-bold">
+                            Will you be attending the Welcome Party at
+                            <a href="https://share.google/7ZxWuUYoSVfMIMUnj"
+                               target="_blank" rel="noopener noreferrer">Aunt Chilada's</a>
+                            in Phoenix on the evening of December 31st?
+                            <span class="text-danger" aria-hidden="true">*</span>
+                            <span class="visually-hidden">Required</span>
+                        </legend>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="welcomeParty"
+                                   id="welcomePartyYes" value="yes" required>
+                            <label class="form-check-label" for="welcomePartyYes">Yes</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="welcomeParty"
+                                   id="welcomePartyNo" value="no" required>
+                            <label class="form-check-label" for="welcomePartyNo">No</label>
+                        </div>
+                    </fieldset>
+
                     <div class="mb-4">
                         <label for="partySize" class="form-label fw-bold">
                             How many are in your party? <span class="text-danger" aria-hidden="true">*</span>
@@ -243,6 +264,10 @@ document.addEventListener('DOMContentLoaded', function() {
             `input[name="attending"][value="${rsvp.attending}"]`
         );
         if (attendance) attendance.checked = true;
+        const welcomeParty = document.querySelector(
+            `input[name="welcomeParty"][value="${rsvp.welcome_party}"]`
+        );
+        if (welcomeParty) welcomeParty.checked = true;
         document.getElementById('rsvpModalLabel').textContent = 'Update RSVP';
         document.getElementById('rsvpModeMessage').textContent = 'Review and update your saved response.';
         document.getElementById('rsvpSubmitButton').lastChild.textContent = 'Update RSVP';
@@ -272,12 +297,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const selectedAttendance = document.querySelector('input[name="attending"]:checked');
+        const selectedWelcomeParty = document.querySelector(
+            'input[name="welcomeParty"]:checked'
+        );
         const response = await fetch('/api/rsvp', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
                 party_names: document.getElementById('partyNames').value,
                 attending: selectedAttendance ? selectedAttendance.value : '',
+                welcome_party: selectedWelcomeParty ? selectedWelcomeParty.value : '',
                 party_size: document.getElementById('partySize').value,
                 email: document.getElementById('rsvpEmail').value,
                 captcha: document.getElementById('rsvpCaptcha').value,
