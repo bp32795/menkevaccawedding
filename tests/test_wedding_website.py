@@ -133,6 +133,8 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
     def test_submit_rsvp_stores_response_and_sends_email(
             self, mock_get_container, mock_send_email, mock_guest_email):
         """A valid RSVP is stored and emailed to the couple and guest."""
+        mock_send_email.return_value = True
+        mock_guest_email.return_value = True
         mock_container = Mock()
         mock_container.query_items.return_value = []
         mock_get_container.return_value = mock_container
@@ -160,10 +162,42 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
             stored_rsvp['dietary_restrictions'], 'One vegetarian meal, please.')
         self.assertEqual(stored_rsvp['decline_note'], '')
         self.assertEqual(stored_rsvp['party_size'], 2)
+        self.assertTrue(stored_rsvp['notification_status']['couple_sent'])
+        self.assertTrue(stored_rsvp['notification_status']['guest_sent'])
         mock_send_email.assert_called_once_with(stored_rsvp, is_update=False)
         mock_guest_email.assert_called_once()
         self.assertEqual(mock_guest_email.call_args.args[0], stored_rsvp)
         self.assertIn('/rsvp/edit/', mock_guest_email.call_args.args[1])
+
+    @patch('app.send_guest_rsvp_confirmation', return_value=False)
+    @patch('app.send_rsvp_notification_email', return_value=False)
+    @patch('app.get_response_container')
+    def test_submit_rsvp_records_delayed_notifications(
+            self, mock_get_container, _mock_send_email, _mock_guest_email):
+        """A saved RSVP reports and records notification delivery failures."""
+        mock_container = Mock()
+        mock_container.query_items.return_value = []
+        mock_get_container.return_value = mock_container
+
+        with self.client.session_transaction() as session_data:
+            session_data['captcha_rsvp'] = 7
+
+        response = self.client.post('/api/rsvp', json={
+            'party_names': 'Taylor Smith',
+            'attending': 'no',
+            'email': 'taylor@example.com',
+            'captcha': '7',
+            'website': ''
+        })
+
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.get_json()['notification_delayed'])
+        self.assertIn('email confirmation is delayed', response.get_json()['message'])
+        stored_rsvp = mock_container.create_item.call_args.kwargs['body']
+        self.assertFalse(stored_rsvp['notification_status']['couple_sent'])
+        self.assertFalse(stored_rsvp['notification_status']['guest_sent'])
+        mock_container.replace_item.assert_called_once_with(
+            item=stored_rsvp['id'], body=stored_rsvp)
 
     @patch('app.send_guest_rsvp_confirmation')
     @patch('app.send_rsvp_notification_email')
@@ -349,6 +383,23 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         self.assertIn(edit_url, plain_body)
         self.assertIn(f'href="{edit_url}"', html_body)
         self.assertIn('Thanks,<br>Brandon and Sofie', html_body)
+
+    @patch('app.EmailClient')
+    @patch.dict(os.environ, {
+        'AZURE_COMMUNICATION_CONNECTION_STRING': 'configured',
+        'EMAIL_FROM_ADDRESS': 'sender@example.com'
+    })
+    def test_azure_email_disables_automatic_retries(self, mock_email_client):
+        """A throttled send does not amplify quota usage with SDK retries."""
+        mock_email_client.from_connection_string.return_value.begin_send.return_value \
+            .result.return_value = {'id': 'operation-1'}
+
+        result = app_module.send_email_via_azure(
+            ['guest@example.com'], 'RSVP', 'Body')
+
+        self.assertTrue(result)
+        mock_email_client.from_connection_string.assert_called_once_with(
+            'configured', retry_total=0)
 
     def test_submit_rsvp_rejects_invalid_captcha(self):
         """A new RSVP requires the server-generated bot challenge."""

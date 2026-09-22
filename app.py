@@ -581,15 +581,23 @@ def submit_rsvp():
         container.replace_item(item=rsvp_id, body=rsvp_record)
         session.pop('editable_rsvp_id', None)
         session.pop('editable_rsvp_email', None)
-        send_rsvp_notification_email(rsvp_record, is_update=True)
         edit_url = url_for(
             'edit_rsvp_from_link',
             token=generate_rsvp_edit_token(rsvp_record),
             _external=True,
             _scheme='https'
         )
-        send_guest_rsvp_confirmation(rsvp_record, edit_url)
-        return jsonify({'success': True, 'message': 'Your RSVP has been updated.'})
+        notification_status = send_and_record_rsvp_notifications(
+            container, rsvp_record, edit_url, is_update=True)
+        notification_delayed = not all(notification_status.values())
+        message = 'Your RSVP has been updated.'
+        if notification_delayed:
+            message += ' Your email confirmation is delayed.'
+        return jsonify({
+            'success': True,
+            'message': message,
+            'notification_delayed': notification_delayed
+        })
 
     if find_rsvp_by_email(container, email):
         return jsonify({
@@ -610,17 +618,22 @@ def submit_rsvp():
         'updated_at': now
     }
     container.create_item(body=rsvp_record)
-    send_rsvp_notification_email(rsvp_record, is_update=False)
     edit_url = url_for(
         'edit_rsvp_from_link',
         token=generate_rsvp_edit_token(rsvp_record),
         _external=True,
         _scheme='https'
     )
-    send_guest_rsvp_confirmation(rsvp_record, edit_url)
+    notification_status = send_and_record_rsvp_notifications(
+        container, rsvp_record, edit_url, is_update=False)
+    notification_delayed = not all(notification_status.values())
+    message = 'Thank you. Your RSVP has been received.'
+    if notification_delayed:
+        message += ' Your email confirmation is delayed.'
     return jsonify({
         'success': True,
-        'message': 'Thank you. Your RSVP has been received.'
+        'message': message,
+        'notification_delayed': notification_delayed
     }), 201
 
 
@@ -805,7 +818,8 @@ def send_email_via_azure(
         app.logger.info("🔗 Azure connection string found, initializing client...")
         
         # Initialize the EmailClient
-        email_client = EmailClient.from_connection_string(connection_string)
+        email_client = EmailClient.from_connection_string(
+            connection_string, retry_total=0)
         app.logger.info("✅ EmailClient initialized successfully")
         
         # Set default from email - try Azure managed domain first
@@ -964,6 +978,29 @@ def send_rsvp_notification_email(data, is_update=False):
     )
     return send_couple_notification(
         f"{action}: {data['party_names']}", body)
+
+
+def send_and_record_rsvp_notifications(
+        container, rsvp_record, edit_url, is_update=False):
+    """Send RSVP emails and persist whether each notification succeeded."""
+    couple_sent = bool(send_rsvp_notification_email(
+        rsvp_record, is_update=is_update))
+    guest_sent = bool(send_guest_rsvp_confirmation(rsvp_record, edit_url))
+    notification_status = {
+        'couple_sent': couple_sent,
+        'guest_sent': guest_sent
+    }
+    rsvp_record['notification_status'] = notification_status
+    rsvp_record['notification_attempted_at'] = datetime.now(
+        timezone.utc).isoformat()
+    container.replace_item(item=rsvp_record['id'], body=rsvp_record)
+    if not all(notification_status.values()):
+        app.logger.error(
+            'RSVP %s saved with delayed notifications: couple_sent=%s, '
+            'guest_sent=%s',
+            rsvp_record['id'], couple_sent, guest_sent
+        )
+    return notification_status
 
 
 def _format_rsvp_details(data, html=False):
