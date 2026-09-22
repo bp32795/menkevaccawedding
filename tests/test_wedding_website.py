@@ -96,6 +96,9 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         self.assertIn(b'We will be serving salmon', response.data)
         self.assertIn(b'Dietary restrictions', response.data)
         self.assertIn(b'Feel free to leave a note for the couple', response.data)
+        self.assertIn(b'Updating RSVP...', response.data)
+        self.assertIn(b'Finding RSVP...', response.data)
+        self.assertIn(b'aria-busy', response.data)
         self.assertGreaterEqual(response.data.count(b'visually-hidden">Required'), 7)
 
     @patch('app.get_response_container')

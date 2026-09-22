@@ -244,7 +244,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">
+                    <button type="submit" class="btn btn-primary" id="lookupSubmitButton">
                         <i class="fas fa-search me-2" aria-hidden="true"></i>Find My RSVP
                     </button>
                 </div>
@@ -273,12 +273,22 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('input[name="welcomeParty"]').forEach(function(input) {
             input.required = isAttending;
         });
-        document.getElementById('partySize').required = isAttending;
+        const partySize = document.getElementById('partySize');
+        partySize.required = isAttending;
+        partySize.min = isAttending ? '1' : '';
     }
 
     function setStatus(element, message, success) {
         element.textContent = message;
         element.className = `alert form-status alert-${success ? 'success' : 'danger'}`;
+    }
+
+    function setButtonBusy(button, busy, label, icon) {
+        button.disabled = busy;
+        button.setAttribute('aria-busy', busy.toString());
+        button.innerHTML = busy
+            ? `<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>${label}`
+            : `<i class="fas fa-${icon} me-2" aria-hidden="true"></i>${label}`;
     }
 
     async function refreshCaptcha(purpose) {
@@ -307,7 +317,9 @@ document.addEventListener('DOMContentLoaded', function() {
         updateAttendanceFields();
         document.getElementById('rsvpModalLabel').textContent = 'Update RSVP';
         document.getElementById('rsvpModeMessage').textContent = 'Review and update your saved response.';
-        document.getElementById('rsvpSubmitButton').lastChild.textContent = 'Update RSVP';
+        setButtonBusy(
+            document.getElementById('rsvpSubmitButton'), false, 'Update RSVP', 'paper-plane'
+        );
         document.getElementById('rsvpCaptchaGroup').classList.add('d-none');
         document.getElementById('rsvpCaptcha').required = false;
         document.getElementById('rsvpStatus').textContent = '';
@@ -320,7 +332,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('rsvpStatus').textContent = '';
         document.getElementById('rsvpModalLabel').textContent = 'Submit RSVP';
         document.getElementById('rsvpModeMessage').textContent = 'Tell us who will be celebrating with us.';
-        document.getElementById('rsvpSubmitButton').lastChild.textContent = 'Submit RSVP';
+        setButtonBusy(
+            document.getElementById('rsvpSubmitButton'), false, 'Submit RSVP', 'paper-plane'
+        );
         document.getElementById('rsvpCaptchaGroup').classList.remove('d-none');
         document.getElementById('rsvpCaptcha').required = true;
         updateAttendanceFields();
@@ -342,32 +356,56 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedWelcomeParty = document.querySelector(
             'input[name="welcomeParty"]:checked'
         );
-        const response = await fetch('/api/rsvp', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                party_names: document.getElementById('partyNames').value,
-                attending: selectedAttendance ? selectedAttendance.value : '',
-                welcome_party: selectedWelcomeParty ? selectedWelcomeParty.value : '',
-                party_size: document.getElementById('partySize').value,
-                dietary_restrictions: document.getElementById('dietaryRestrictions').value,
-                decline_note: document.getElementById('declineNote').value,
-                email: document.getElementById('rsvpEmail').value,
-                captcha: document.getElementById('rsvpCaptcha').value,
-                website: document.getElementById('rsvpWebsite').value,
-                is_update: isUpdate
-            })
-        });
-        const data = await response.json();
-        setStatus(document.getElementById('rsvpStatus'), data.message || data.error, response.ok);
-        if (response.ok) {
-            rsvpForm.reset();
-            setTimeout(function() {
-                rsvpModal.hide();
-                showToast(data.message, 'success');
-            }, 900);
-        } else if (!isUpdate) {
-            refreshCaptcha('rsvp');
+        const submitButton = document.getElementById('rsvpSubmitButton');
+        const idleLabel = isUpdate ? 'Update RSVP' : 'Submit RSVP';
+        const busyLabel = isUpdate ? 'Updating RSVP...' : 'Submitting RSVP...';
+        let succeeded = false;
+        setButtonBusy(submitButton, true, busyLabel, 'paper-plane');
+
+        try {
+            const response = await fetch('/api/rsvp', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    party_names: document.getElementById('partyNames').value,
+                    attending: selectedAttendance ? selectedAttendance.value : '',
+                    welcome_party: selectedWelcomeParty ? selectedWelcomeParty.value : '',
+                    party_size: document.getElementById('partySize').value,
+                    dietary_restrictions: document.getElementById('dietaryRestrictions').value,
+                    decline_note: document.getElementById('declineNote').value,
+                    email: document.getElementById('rsvpEmail').value,
+                    captcha: document.getElementById('rsvpCaptcha').value,
+                    website: document.getElementById('rsvpWebsite').value,
+                    is_update: isUpdate
+                })
+            });
+            const data = await response.json();
+            setStatus(
+                document.getElementById('rsvpStatus'),
+                data.message || data.error,
+                response.ok
+            );
+            if (response.ok) {
+                succeeded = true;
+                rsvpForm.reset();
+                setTimeout(function() {
+                    rsvpModal.hide();
+                    showToast(data.message, 'success');
+                    setButtonBusy(submitButton, false, idleLabel, 'paper-plane');
+                }, 900);
+            } else if (!isUpdate) {
+                await refreshCaptcha('rsvp');
+            }
+        } catch (error) {
+            setStatus(
+                document.getElementById('rsvpStatus'),
+                'Unable to submit your RSVP. Please try again.',
+                false
+            );
+        } finally {
+            if (!succeeded) {
+                setButtonBusy(submitButton, false, idleLabel, 'paper-plane');
+            }
         }
     });
 
@@ -378,25 +416,44 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const response = await fetch('/api/rsvp/lookup', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                email: document.getElementById('lookupEmail').value,
-                captcha: document.getElementById('lookupCaptcha').value,
-                website: document.getElementById('lookupWebsite').value
-            })
-        });
-        const data = await response.json();
-        if (!response.ok) {
-            setStatus(document.getElementById('lookupStatus'), data.error, false);
-            refreshCaptcha('lookup');
-            return;
-        }
+        const lookupButton = document.getElementById('lookupSubmitButton');
+        let foundRsvp = false;
+        setButtonBusy(lookupButton, true, 'Finding RSVP...', 'search');
+        try {
+            const response = await fetch('/api/rsvp/lookup', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    email: document.getElementById('lookupEmail').value,
+                    captcha: document.getElementById('lookupCaptcha').value,
+                    website: document.getElementById('lookupWebsite').value
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                setStatus(document.getElementById('lookupStatus'), data.error, false);
+                await refreshCaptcha('lookup');
+                return;
+            }
 
-        prepareUpdateForm(data.rsvp);
-        lookupModal.hide();
-        setTimeout(function() { rsvpModal.show(); }, 250);
+            foundRsvp = true;
+            prepareUpdateForm(data.rsvp);
+            lookupModal.hide();
+            setTimeout(function() {
+                rsvpModal.show();
+                setButtonBusy(lookupButton, false, 'Find My RSVP', 'search');
+            }, 250);
+        } catch (error) {
+            setStatus(
+                document.getElementById('lookupStatus'),
+                'Unable to find your RSVP. Please try again.',
+                false
+            );
+        } finally {
+            if (!foundRsvp) {
+                setButtonBusy(lookupButton, false, 'Find My RSVP', 'search');
+            }
+        }
     });
 
     if (initialRsvp) {
