@@ -116,34 +116,56 @@
                         </div>
                     </fieldset>
 
-                    <fieldset class="mb-4">
-                        <legend class="form-label fw-bold">
-                            Will you be attending the Welcome Party at
-                            <a href="https://share.google/7ZxWuUYoSVfMIMUnj"
-                               target="_blank" rel="noopener noreferrer">Aunt Chilada's</a>
-                            in Phoenix on the evening of December 31st?
-                            <span class="text-danger" aria-hidden="true">*</span>
-                            <span class="visually-hidden">Required</span>
-                        </legend>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="welcomeParty"
-                                   id="welcomePartyYes" value="yes" required>
-                            <label class="form-check-label" for="welcomePartyYes">Yes</label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="welcomeParty"
-                                   id="welcomePartyNo" value="no" required>
-                            <label class="form-check-label" for="welcomePartyNo">No</label>
-                        </div>
-                    </fieldset>
+                    <div id="attendingFields" class="d-none">
+                        <fieldset class="mb-4">
+                            <legend class="form-label fw-bold">
+                                Will you be attending the Welcome Party at
+                                <a href="https://share.google/7ZxWuUYoSVfMIMUnj"
+                                   target="_blank" rel="noopener noreferrer">Aunt Chilada's</a>
+                                in Phoenix on the evening of December 31st?
+                                <span class="text-danger" aria-hidden="true">*</span>
+                                <span class="visually-hidden">Required</span>
+                            </legend>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="welcomeParty"
+                                       id="welcomePartyYes" value="yes">
+                                <label class="form-check-label" for="welcomePartyYes">Yes</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="welcomeParty"
+                                       id="welcomePartyNo" value="no">
+                                <label class="form-check-label" for="welcomePartyNo">No</label>
+                            </div>
+                        </fieldset>
 
-                    <div class="mb-4">
-                        <label for="partySize" class="form-label fw-bold">
-                            How many are in your party? <span class="text-danger" aria-hidden="true">*</span>
-                            <span class="visually-hidden">Required</span>
+                        <div class="mb-4">
+                            <label for="partySize" class="form-label fw-bold">
+                                How many are in your party? <span class="text-danger" aria-hidden="true">*</span>
+                                <span class="visually-hidden">Required</span>
+                            </label>
+                            <input class="form-control" type="number" id="partySize" min="1" max="20">
+                            <div class="invalid-feedback">Enter a party size between 1 and 20.</div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="dietaryRestrictions" class="form-label fw-bold">
+                                Dietary restrictions <span class="text-muted">(Optional)</span>
+                            </label>
+                            <div class="form-text mb-2">
+                                We will be serving salmon. Please include any dietary restrictions,
+                                including vegan or vegetarian needs.
+                            </div>
+                            <textarea class="form-control" id="dietaryRestrictions" rows="3"
+                                      maxlength="2000"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="mb-4 d-none" id="declineFields">
+                        <label for="declineNote" class="form-label fw-bold">
+                            Feel free to leave a note for the couple <span class="text-muted">(Optional)</span>
                         </label>
-                        <input class="form-control" type="number" id="partySize" min="1" max="20" required>
-                        <div class="invalid-feedback">Enter a party size between 1 and 20.</div>
+                        <textarea class="form-control" id="declineNote" rows="5"
+                                  maxlength="2000"></textarea>
                     </div>
 
                     <div class="mb-4">
@@ -242,6 +264,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const initialRsvp = {{ initial_rsvp | tojson }};
     let isUpdate = false;
 
+    function updateAttendanceFields() {
+        const attendance = document.querySelector('input[name="attending"]:checked')?.value;
+        const isAttending = attendance === 'yes';
+        const isDeclining = attendance === 'no';
+        document.getElementById('attendingFields').classList.toggle('d-none', !isAttending);
+        document.getElementById('declineFields').classList.toggle('d-none', !isDeclining);
+        document.querySelectorAll('input[name="welcomeParty"]').forEach(function(input) {
+            input.required = isAttending;
+        });
+        document.getElementById('partySize').required = isAttending;
+    }
+
     function setStatus(element, message, success) {
         element.textContent = message;
         element.className = `alert form-status alert-${success ? 'success' : 'danger'}`;
@@ -259,6 +293,8 @@ document.addEventListener('DOMContentLoaded', function() {
         rsvpForm.reset();
         document.getElementById('partyNames').value = rsvp.party_names;
         document.getElementById('partySize').value = rsvp.party_size;
+        document.getElementById('dietaryRestrictions').value = rsvp.dietary_restrictions || '';
+        document.getElementById('declineNote').value = rsvp.decline_note || '';
         document.getElementById('rsvpEmail').value = rsvp.email;
         const attendance = document.querySelector(
             `input[name="attending"][value="${rsvp.attending}"]`
@@ -268,6 +304,7 @@ document.addEventListener('DOMContentLoaded', function() {
             `input[name="welcomeParty"][value="${rsvp.welcome_party}"]`
         );
         if (welcomeParty) welcomeParty.checked = true;
+        updateAttendanceFields();
         document.getElementById('rsvpModalLabel').textContent = 'Update RSVP';
         document.getElementById('rsvpModeMessage').textContent = 'Review and update your saved response.';
         document.getElementById('rsvpSubmitButton').lastChild.textContent = 'Update RSVP';
@@ -286,7 +323,12 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('rsvpSubmitButton').lastChild.textContent = 'Submit RSVP';
         document.getElementById('rsvpCaptchaGroup').classList.remove('d-none');
         document.getElementById('rsvpCaptcha').required = true;
+        updateAttendanceFields();
         refreshCaptcha('rsvp');
+    });
+
+    document.querySelectorAll('input[name="attending"]').forEach(function(input) {
+        input.addEventListener('change', updateAttendanceFields);
     });
 
     rsvpForm.addEventListener('submit', async function(event) {
@@ -308,6 +350,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 attending: selectedAttendance ? selectedAttendance.value : '',
                 welcome_party: selectedWelcomeParty ? selectedWelcomeParty.value : '',
                 party_size: document.getElementById('partySize').value,
+                dietary_restrictions: document.getElementById('dietaryRestrictions').value,
+                decline_note: document.getElementById('declineNote').value,
                 email: document.getElementById('rsvpEmail').value,
                 captcha: document.getElementById('rsvpCaptcha').value,
                 website: document.getElementById('rsvpWebsite').value,

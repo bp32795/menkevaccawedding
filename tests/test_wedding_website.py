@@ -93,6 +93,9 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         self.assertIn(b'Change RSVP', response.data)
         self.assertIn(b'Will you be attending the Welcome Party', response.data)
         self.assertIn(b'href="https://share.google/7ZxWuUYoSVfMIMUnj"', response.data)
+        self.assertIn(b'We will be serving salmon', response.data)
+        self.assertIn(b'Dietary restrictions', response.data)
+        self.assertIn(b'Feel free to leave a note for the couple', response.data)
         self.assertGreaterEqual(response.data.count(b'visually-hidden">Required'), 7)
 
     @patch('app.get_response_container')
@@ -139,6 +142,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
             'attending': 'yes',
             'welcome_party': 'yes',
             'party_size': 2,
+            'dietary_restrictions': 'One vegetarian meal, please.',
             'email': 'Taylor@example.com',
             'captcha': '7',
             'website': ''
@@ -149,11 +153,48 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         self.assertEqual(stored_rsvp['document_type'], 'rsvp')
         self.assertEqual(stored_rsvp['email'], 'taylor@example.com')
         self.assertEqual(stored_rsvp['welcome_party'], 'yes')
+        self.assertEqual(
+            stored_rsvp['dietary_restrictions'], 'One vegetarian meal, please.')
+        self.assertEqual(stored_rsvp['decline_note'], '')
         self.assertEqual(stored_rsvp['party_size'], 2)
         mock_send_email.assert_called_once_with(stored_rsvp, is_update=False)
         mock_guest_email.assert_called_once()
         self.assertEqual(mock_guest_email.call_args.args[0], stored_rsvp)
         self.assertIn('/rsvp/edit/', mock_guest_email.call_args.args[1])
+
+    @patch('app.send_guest_rsvp_confirmation')
+    @patch('app.send_rsvp_notification_email')
+    @patch('app.get_response_container')
+    def test_declining_rsvp_stores_optional_note_without_attendee_fields(
+            self, mock_get_container, mock_send_email, mock_guest_email):
+        """A declining party can leave a note without attendee-only details."""
+        mock_container = Mock()
+        mock_container.query_items.return_value = []
+        mock_get_container.return_value = mock_container
+
+        with self.client.session_transaction() as session_data:
+            session_data['captcha_rsvp'] = 7
+
+        response = self.client.post('/api/rsvp', json={
+            'party_names': 'Taylor Smith',
+            'attending': 'no',
+            'decline_note': 'We are sorry to miss it. Congratulations!',
+            'email': 'taylor@example.com',
+            'captcha': '7',
+            'website': ''
+        })
+
+        self.assertEqual(response.status_code, 201)
+        stored_rsvp = mock_container.create_item.call_args.kwargs['body']
+        self.assertEqual(stored_rsvp['welcome_party'], '')
+        self.assertEqual(stored_rsvp['party_size'], 0)
+        self.assertEqual(stored_rsvp['dietary_restrictions'], '')
+        self.assertEqual(
+            stored_rsvp['decline_note'],
+            'We are sorry to miss it. Congratulations!'
+        )
+        mock_send_email.assert_called_once_with(stored_rsvp, is_update=False)
+        mock_guest_email.assert_called_once()
 
     @patch('app.get_response_container')
     def test_submit_rsvp_rejects_duplicate_email(self, mock_get_container):
@@ -256,6 +297,8 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
             'attending': 'yes',
             'welcome_party': 'yes',
             'party_size': 2,
+            'dietary_restrictions': 'One vegetarian meal, please.',
+            'decline_note': '',
             'email': 'taylor@example.com'
         }
         mock_container = Mock()
@@ -282,6 +325,8 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
             'attending': 'yes',
             'welcome_party': 'yes',
             'party_size': 2,
+            'dietary_restrictions': 'One vegetarian meal, please.',
+            'decline_note': '',
             'email': 'taylor@example.com'
         }
         edit_url = 'https://test.menkexvacca.com/rsvp/edit/signed-token'
@@ -297,6 +342,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         self.assertIn('Thank you for your response!', plain_body)
         self.assertIn('Taylor Smith, Jordan Smith', plain_body)
         self.assertIn('Welcome Party: Yes', plain_body)
+        self.assertIn('Dietary restrictions: One vegetarian meal, please.', plain_body)
         self.assertIn(edit_url, plain_body)
         self.assertIn(f'href="{edit_url}"', html_body)
         self.assertIn('Thanks,<br>Brandon and Sofie', html_body)
@@ -426,6 +472,14 @@ class RegistryPageTestCase(WeddingWebsiteTestCase):
         self.assertIn(b'Wedding Registry', response.data)
         self.assertIn(b'Beautiful Vase', response.data)
         self.assertIn(b'Coffee Maker', response.data)
+        self.assertIn(b'Shipping Address', response.data)
+        self.assertIn(b'class="registry-shipping-address"', response.data)
+        self.assertIn(b'Product links lead to the manufacturer', response.data)
+        self.assertIn(b'@Bmenk', response.data)
+        self.assertIn(b'data-filter="available"', response.data)
+        self.assertIn(b'data-filter="bought"', response.data)
+        self.assertIn(b'data-bought="true"', response.data)
+        self.assertIn(b'data-bought="false"', response.data)
     
     @patch('app.get_cosmos_container')
     def test_registry_page_handles_no_container(self, mock_get_container):

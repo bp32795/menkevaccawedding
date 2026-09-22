@@ -110,6 +110,12 @@
         border-color: var(--primary-color);
         color: white;
     }
+
+    .filter-btn.active {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        color: white;
+    }
     
     #purchaseNote {
         border-radius: 8px;
@@ -127,6 +133,28 @@
         color: #6c757d;
         font-size: 0.875em;
     }
+
+    .registry-shipping-address {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        margin-top: 24px;
+        color: white;
+    }
+
+    .registry-shipping-label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0;
+    }
+
+    .registry-shipping-details {
+        font-size: 1.2rem;
+        font-weight: 600;
+        line-height: 1.4;
+    }
 </style>
 {% endblock %}
 
@@ -138,9 +166,12 @@
             <div class="col-lg-8 text-center">
                 <h1 class="hero-title">Wedding Registry</h1>
                 <p class="hero-subtitle">Help us start our new life together</p>
-                <div class="mt-3" style="color: rgba(255,255,255,0.85); font-size: 0.95rem;">
-                    <i class="fas fa-map-marker-alt me-1"></i>
-                    The Menkes &bull; 1850 E Fremont Dr, Tempe, AZ 85282
+                <div class="registry-shipping-address">
+                    <span class="registry-shipping-label">Shipping Address</span>
+                    <span class="registry-shipping-details">
+                        <i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i>
+                        The Menkes &bull; 1850 E Fremont Dr, Tempe, AZ 85282
+                    </span>
                 </div>
             </div>
         </div>
@@ -156,7 +187,7 @@
                 <h4 class="serif-font mb-2">Honeymoon Fund</h4>
                 <p class="text-muted mb-3">Help us make our honeymoon extra special!</p>
                 <a href="https://venmo.com/code?user_id=1966300150628352544&created=1778183786" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-lg" style="border-radius: 25px;">
-                    <i class="fas fa-heart me-2"></i>Contribute to the Honeymoon Fund: @bmenk
+                    <i class="fas fa-heart me-2"></i>Contribute to the Honeymoon Fund: @Bmenk
                 </a>
             </div>
         </div>
@@ -166,13 +197,26 @@
 <!-- Registry Items Section -->
 <section class="section-padding">
     <div class="container">
+        <p class="text-center text-muted mb-4">
+            Product links lead to the manufacturer, but you're welcome to shop anywhere for the best price.
+        </p>
+
         <!-- Filter and Sort Controls -->
         <div class="filter-controls">
-            <div class="row align-items-center">
+            <div class="row align-items-end g-3">
                 <div class="col-md-6">
-                    <h5 class="mb-3 mb-md-0">Sort by:</h5>
+                    <h5 class="mb-2">Show:</h5>
+                    <div class="btn-group flex-wrap" role="group" aria-label="Filter registry items">
+                        <button class="btn btn-outline-primary filter-btn active"
+                                type="button" data-filter="all">All</button>
+                        <button class="btn btn-outline-primary filter-btn"
+                                type="button" data-filter="available">Available</button>
+                        <button class="btn btn-outline-primary filter-btn"
+                                type="button" data-filter="bought">Already Purchased</button>
+                    </div>
                 </div>
                 <div class="col-md-6">
+                    <h5 class="mb-2 text-md-end">Sort by:</h5>
                     <div class="text-md-end">
                         <button class="btn btn-outline-primary sort-btn active" data-sort="price-low">Price: Low to High</button>
                         <button class="btn btn-outline-primary sort-btn" data-sort="price-high">Price: High to Low</button>
@@ -188,7 +232,8 @@
                 {% for item in items %}
                 <div class="col-lg-4 col-md-6 registry-item-container" 
                      data-price="{{ item.price or 0 }}" 
-                     data-name="{{ item.title or 'Product' }}">
+                     data-name="{{ item.title or 'Product' }}"
+                     data-bought="{{ 'true' if item.bought else 'false' }}">
                     <div class="card registry-item h-100 {% if item.bought %}bought{% endif %}">
                         
                         {% if item.display_image_url %}
@@ -238,6 +283,11 @@
                     </div>
                 </div>
                 {% endfor %}
+                <div class="col-12 d-none" id="registryFilterEmpty">
+                    <p class="text-center text-muted py-5 mb-0">
+                        No registry items match this filter.
+                    </p>
+                </div>
             {% else %}
                 <div class="col-12">
                     <div class="text-center py-5">
@@ -327,7 +377,31 @@ document.addEventListener('DOMContentLoaded', function() {
 // Sort functionality
 document.addEventListener('DOMContentLoaded', function() {
     const sortButtons = document.querySelectorAll('.sort-btn');
+    const filterButtons = document.querySelectorAll('.filter-btn');
     const registryGrid = document.getElementById('registryGrid');
+    const registryItems = Array.from(
+        registryGrid.querySelectorAll('.registry-item-container')
+    );
+    const filterEmpty = document.getElementById('registryFilterEmpty');
+
+    filterButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+
+            const filter = this.dataset.filter;
+            let visibleCount = 0;
+            registryItems.forEach(item => {
+                const isBought = item.dataset.bought === 'true';
+                const isVisible = filter === 'all' ||
+                    (filter === 'bought' && isBought) ||
+                    (filter === 'available' && !isBought);
+                item.classList.toggle('d-none', !isVisible);
+                if (isVisible) visibleCount += 1;
+            });
+            if (filterEmpty) filterEmpty.classList.toggle('d-none', visibleCount > 0);
+        });
+    });
     
     sortButtons.forEach(button => {
         button.addEventListener('click', function() {
@@ -337,7 +411,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Get sort type
             const sortType = this.dataset.sort;
-            const items = Array.from(registryGrid.children);
+            const items = Array.from(registryItems);
             
             // Sort items
             items.sort((a, b) => {

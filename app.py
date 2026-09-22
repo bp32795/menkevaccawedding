@@ -497,6 +497,8 @@ def edit_rsvp_from_link(token):
             'attending': rsvp_record.get('attending', ''),
             'welcome_party': rsvp_record.get('welcome_party', ''),
             'party_size': rsvp_record.get('party_size', 1),
+            'dietary_restrictions': rsvp_record.get('dietary_restrictions', ''),
+            'decline_note': rsvp_record.get('decline_note', ''),
             'email': rsvp_record.get('email', '')
         }
     )
@@ -517,6 +519,8 @@ def submit_rsvp():
     party_names = str(data.get('party_names') or '').strip()
     attending = str(data.get('attending') or '').strip().lower()
     welcome_party = str(data.get('welcome_party') or '').strip().lower()
+    dietary_restrictions = str(data.get('dietary_restrictions') or '').strip()
+    decline_note = str(data.get('decline_note') or '').strip()
     email = normalize_email(data.get('email'))
     try:
         party_size = int(data.get('party_size'))
@@ -527,14 +531,25 @@ def submit_rsvp():
         return jsonify({'error': 'Please provide the names in your party.'}), 400
     if attending not in {'yes', 'no'}:
         return jsonify({'error': 'Please select whether your party will attend.'}), 400
-    if welcome_party not in {'yes', 'no'}:
+    if attending == 'yes' and welcome_party not in {'yes', 'no'}:
         return jsonify({
             'error': 'Please select whether your party will attend the Welcome Party.'
         }), 400
-    if not 1 <= party_size <= 20:
+    if attending == 'yes' and not 1 <= party_size <= 20:
         return jsonify({'error': 'Party size must be between 1 and 20.'}), 400
+    if len(dietary_restrictions) > 2000:
+        return jsonify({'error': 'Dietary restrictions must be 2,000 characters or fewer.'}), 400
+    if len(decline_note) > 2000:
+        return jsonify({'error': 'Your note must be 2,000 characters or fewer.'}), 400
     if not email:
         return jsonify({'error': 'Please provide a valid email address.'}), 400
+
+    if attending == 'yes':
+        decline_note = ''
+    else:
+        welcome_party = ''
+        party_size = 0
+        dietary_restrictions = ''
 
     container = get_response_container()
     if not container:
@@ -558,6 +573,8 @@ def submit_rsvp():
             'attending': attending,
             'welcome_party': welcome_party,
             'party_size': party_size,
+            'dietary_restrictions': dietary_restrictions,
+            'decline_note': decline_note,
             'email': email,
             'updated_at': now
         })
@@ -586,6 +603,8 @@ def submit_rsvp():
         'attending': attending,
         'welcome_party': welcome_party,
         'party_size': party_size,
+        'dietary_restrictions': dietary_restrictions,
+        'decline_note': decline_note,
         'email': email,
         'created_at': now,
         'updated_at': now
@@ -633,6 +652,8 @@ def lookup_rsvp():
         'attending': rsvp_record.get('attending', ''),
         'welcome_party': rsvp_record.get('welcome_party', ''),
         'party_size': rsvp_record.get('party_size', 1),
+        'dietary_restrictions': rsvp_record.get('dietary_restrictions', ''),
+        'decline_note': rsvp_record.get('decline_note', ''),
         'email': rsvp_record.get('email', '')
     }})
 
@@ -878,14 +899,14 @@ def send_couple_notification(subject, body):
 def send_guest_rsvp_confirmation(data, edit_url):
     """Send RSVP details and a signed edit link to the submitting guest."""
     attendance = 'Yes' if data['attending'] == 'yes' else 'No'
-    welcome_party = 'Yes' if data['welcome_party'] == 'yes' else 'No'
+    details = _format_rsvp_details(data, html=False)
+    html_details = _format_rsvp_details(data, html=True)
     subject = 'Your Menke & Vacca Wedding RSVP'
     plain_body = (
         "Thank you for your response! Please find your submission below:\n\n"
         f"Party names: {data['party_names']}\n"
         f"Attending: {attendance}\n"
-        f"Welcome Party: {welcome_party}\n"
-        f"Party size: {data['party_size']}\n"
+        f"{details}"
         f"Email: {data['email']}\n\n"
         f"Click here to change any details: {edit_url}\n\n"
         "Thanks,\n"
@@ -899,8 +920,7 @@ def send_guest_rsvp_confirmation(data, edit_url):
         "<p>"
         f"<strong>Party names:</strong> {safe_party_names}<br>"
         f"<strong>Attending:</strong> {attendance}<br>"
-        f"<strong>Welcome Party:</strong> {welcome_party}<br>"
-        f"<strong>Party size:</strong> {data['party_size']}<br>"
+        f"{html_details}"
         f"<strong>Email:</strong> {safe_email}"
         "</p>"
         f'<p><a href="{safe_edit_url}">Click here to change any details.</a></p>'
@@ -933,18 +953,43 @@ def send_rsvp_notification_email(data, is_update=False):
     """Email the couple when an RSVP is created or changed."""
     action = 'Updated RSVP' if is_update else 'New RSVP'
     attendance = 'Yes' if data['attending'] == 'yes' else 'No'
-    welcome_party = 'Yes' if data['welcome_party'] == 'yes' else 'No'
+    details = _format_rsvp_details(data, html=False)
     body = (
         f"{action} received.\n\n"
         f"Party names: {data['party_names']}\n"
         f"Attending: {attendance}\n"
-        f"Welcome Party: {welcome_party}\n"
-        f"Party size: {data['party_size']}\n"
+        f"{details}"
         f"Email: {data['email']}\n"
         f"Submitted: {data['updated_at']}"
     )
     return send_couple_notification(
         f"{action}: {data['party_names']}", body)
+
+
+def _format_rsvp_details(data, html=False):
+    """Format attendance-specific RSVP details for notification emails."""
+    separator = '<br>' if html else '\n'
+    if data['attending'] == 'yes':
+        welcome_party = 'Yes' if data.get('welcome_party') == 'yes' else 'No'
+        dietary_restrictions = data.get('dietary_restrictions') or 'None provided'
+        if html:
+            dietary_restrictions = escape(dietary_restrictions)
+            return (
+                f"<strong>Welcome Party:</strong> {welcome_party}{separator}"
+                f"<strong>Party size:</strong> {data['party_size']}{separator}"
+                f"<strong>Dietary restrictions:</strong> "
+                f"{dietary_restrictions}{separator}"
+            )
+        return (
+            f"Welcome Party: {welcome_party}{separator}"
+            f"Party size: {data['party_size']}{separator}"
+            f"Dietary restrictions: {dietary_restrictions}{separator}"
+        )
+
+    decline_note = data.get('decline_note') or 'None provided'
+    if html:
+        return f"<strong>Note:</strong> {escape(decline_note)}{separator}"
+    return f"Note: {decline_note}{separator}"
 
 
 def send_contact_notification_email(data):
