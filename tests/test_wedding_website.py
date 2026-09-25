@@ -95,6 +95,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         self.assertIn(b'href="https://share.google/7ZxWuUYoSVfMIMUnj"', response.data)
         self.assertIn(b'We will be serving salmon', response.data)
         self.assertIn(b'Dietary restrictions', response.data)
+        self.assertIn(b'id="coupleNote"', response.data)
         self.assertIn(b'Feel free to leave a note for the couple', response.data)
         self.assertIn(b'Updating RSVP...', response.data)
         self.assertIn(b'Finding RSVP...', response.data)
@@ -148,6 +149,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
             'welcome_party': 'yes',
             'party_size': 2,
             'dietary_restrictions': 'One vegetarian meal, please.',
+            'couple_note': 'We cannot wait to celebrate with you!',
             'email': 'Taylor@example.com',
             'captcha': '7',
             'website': ''
@@ -160,6 +162,9 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         self.assertEqual(stored_rsvp['welcome_party'], 'yes')
         self.assertEqual(
             stored_rsvp['dietary_restrictions'], 'One vegetarian meal, please.')
+        self.assertEqual(
+            stored_rsvp['couple_note'],
+            'We cannot wait to celebrate with you!')
         self.assertEqual(stored_rsvp['decline_note'], '')
         self.assertEqual(stored_rsvp['party_size'], 2)
         self.assertTrue(stored_rsvp['notification_status']['couple_sent'])
@@ -215,6 +220,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         response = self.client.post('/api/rsvp', json={
             'party_names': 'Taylor Smith',
             'attending': 'no',
+            'couple_note': 'This stale attendee note should not be retained.',
             'decline_note': 'We are sorry to miss it. Congratulations!',
             'email': 'taylor@example.com',
             'captcha': '7',
@@ -226,6 +232,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         self.assertEqual(stored_rsvp['welcome_party'], '')
         self.assertEqual(stored_rsvp['party_size'], 0)
         self.assertEqual(stored_rsvp['dietary_restrictions'], '')
+        self.assertEqual(stored_rsvp['couple_note'], '')
         self.assertEqual(
             stored_rsvp['decline_note'],
             'We are sorry to miss it. Congratulations!'
@@ -335,6 +342,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
             'welcome_party': 'yes',
             'party_size': 2,
             'dietary_restrictions': 'One vegetarian meal, please.',
+            'couple_note': 'We cannot wait to celebrate with you!',
             'decline_note': '',
             'email': 'taylor@example.com'
         }
@@ -348,6 +356,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Taylor Smith, Jordan Smith', response.data)
         self.assertIn(b'"welcome_party": "yes"', response.data)
+        self.assertIn(b'We cannot wait to celebrate with you!', response.data)
         with self.client.session_transaction() as session_data:
             self.assertEqual(session_data['editable_rsvp_id'], 'rsvp-1')
 
@@ -363,6 +372,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
             'welcome_party': 'yes',
             'party_size': 2,
             'dietary_restrictions': 'One vegetarian meal, please.',
+            'couple_note': 'We cannot wait to celebrate with you!',
             'decline_note': '',
             'email': 'taylor@example.com'
         }
@@ -380,6 +390,7 @@ class RSVPPageTestCase(WeddingWebsiteTestCase):
         self.assertIn('Taylor Smith, Jordan Smith', plain_body)
         self.assertIn('Welcome Party: Yes', plain_body)
         self.assertIn('Dietary restrictions: One vegetarian meal, please.', plain_body)
+        self.assertIn('Note: We cannot wait to celebrate with you!', plain_body)
         self.assertIn(edit_url, plain_body)
         self.assertIn(f'href="{edit_url}"', html_body)
         self.assertIn('Thanks,<br>Brandon and Sofie', html_body)
@@ -462,6 +473,23 @@ class ContactPageTestCase(WeddingWebsiteTestCase):
 
         self.assertIn('bp32795@gmail.com', recipients)
         self.assertIn('sofiavacca97@gmail.com', recipients)
+
+
+class FAQPageTestCase(WeddingWebsiteTestCase):
+    """Test cases for guest travel and activity guidance."""
+
+    def test_faq_page_loads_with_travel_links(self):
+        """The FAQ includes airport guidance, activities, and contact help."""
+        response = self.client.get('/faq')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'What airport should we fly into?', response.data)
+        self.assertIn(b'Phoenix Sky Harbor International Airport (PHX)', response.data)
+        self.assertIn(b'Phoenix-Mesa Gateway Airport (AZA)', response.data)
+        self.assertIn(b'Musical Instrument Museum', response.data)
+        self.assertIn(b'Old Town Scottsdale', response.data)
+        self.assertIn(b'Desert Botanical Garden', response.data)
+        self.assertIn(b'href="/contact"', response.data)
 
 
 class VenuePageTestCase(WeddingWebsiteTestCase):

@@ -158,6 +158,14 @@
                             <textarea class="form-control" id="dietaryRestrictions" rows="3"
                                       maxlength="2000"></textarea>
                         </div>
+
+                        <div class="mb-4">
+                            <label for="coupleNote" class="form-label fw-bold">
+                                Leave a note for the couple <span class="text-muted">(Optional)</span>
+                            </label>
+                            <textarea class="form-control" id="coupleNote" rows="4"
+                                      maxlength="2000"></textarea>
+                        </div>
                     </div>
 
                     <div class="mb-4 d-none" id="declineFields">
@@ -304,6 +312,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('partyNames').value = rsvp.party_names;
         document.getElementById('partySize').value = rsvp.party_size;
         document.getElementById('dietaryRestrictions').value = rsvp.dietary_restrictions || '';
+        document.getElementById('coupleNote').value = rsvp.couple_note || '';
         document.getElementById('declineNote').value = rsvp.decline_note || '';
         document.getElementById('rsvpEmail').value = rsvp.email;
         const attendance = document.querySelector(
@@ -372,6 +381,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     welcome_party: selectedWelcomeParty ? selectedWelcomeParty.value : '',
                     party_size: document.getElementById('partySize').value,
                     dietary_restrictions: document.getElementById('dietaryRestrictions').value,
+                    couple_note: document.getElementById('coupleNote').value,
                     decline_note: document.getElementById('declineNote').value,
                     email: document.getElementById('rsvpEmail').value,
                     captcha: document.getElementById('rsvpCaptcha').value,

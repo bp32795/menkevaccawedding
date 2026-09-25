@@ -498,6 +498,7 @@ def edit_rsvp_from_link(token):
             'welcome_party': rsvp_record.get('welcome_party', ''),
             'party_size': rsvp_record.get('party_size', 1),
             'dietary_restrictions': rsvp_record.get('dietary_restrictions', ''),
+            'couple_note': rsvp_record.get('couple_note', ''),
             'decline_note': rsvp_record.get('decline_note', ''),
             'email': rsvp_record.get('email', '')
         }
@@ -520,6 +521,7 @@ def submit_rsvp():
     attending = str(data.get('attending') or '').strip().lower()
     welcome_party = str(data.get('welcome_party') or '').strip().lower()
     dietary_restrictions = str(data.get('dietary_restrictions') or '').strip()
+    couple_note = str(data.get('couple_note') or '').strip()
     decline_note = str(data.get('decline_note') or '').strip()
     email = normalize_email(data.get('email'))
     try:
@@ -539,6 +541,8 @@ def submit_rsvp():
         return jsonify({'error': 'Party size must be between 1 and 20.'}), 400
     if len(dietary_restrictions) > 2000:
         return jsonify({'error': 'Dietary restrictions must be 2,000 characters or fewer.'}), 400
+    if len(couple_note) > 2000:
+        return jsonify({'error': 'Your note must be 2,000 characters or fewer.'}), 400
     if len(decline_note) > 2000:
         return jsonify({'error': 'Your note must be 2,000 characters or fewer.'}), 400
     if not email:
@@ -550,6 +554,7 @@ def submit_rsvp():
         welcome_party = ''
         party_size = 0
         dietary_restrictions = ''
+        couple_note = ''
 
     container = get_response_container()
     if not container:
@@ -574,6 +579,7 @@ def submit_rsvp():
             'welcome_party': welcome_party,
             'party_size': party_size,
             'dietary_restrictions': dietary_restrictions,
+            'couple_note': couple_note,
             'decline_note': decline_note,
             'email': email,
             'updated_at': now
@@ -612,6 +618,7 @@ def submit_rsvp():
         'welcome_party': welcome_party,
         'party_size': party_size,
         'dietary_restrictions': dietary_restrictions,
+        'couple_note': couple_note,
         'decline_note': decline_note,
         'email': email,
         'created_at': now,
@@ -666,6 +673,7 @@ def lookup_rsvp():
         'welcome_party': rsvp_record.get('welcome_party', ''),
         'party_size': rsvp_record.get('party_size', 1),
         'dietary_restrictions': rsvp_record.get('dietary_restrictions', ''),
+        'couple_note': rsvp_record.get('couple_note', ''),
         'decline_note': rsvp_record.get('decline_note', ''),
         'email': rsvp_record.get('email', '')
     }})
@@ -714,6 +722,13 @@ def contact():
     send_contact_notification_email(message_record)
     flash('Your message has been sent. We will be in touch soon.', 'success')
     return redirect(url_for('contact'))
+
+
+@app.route('/faq')
+def faq():
+    """Display travel and local activity guidance for wedding guests."""
+    return render_template('faq.html')
+
 
 @app.route('/venue')
 def venue():
@@ -1009,18 +1024,22 @@ def _format_rsvp_details(data, html=False):
     if data['attending'] == 'yes':
         welcome_party = 'Yes' if data.get('welcome_party') == 'yes' else 'No'
         dietary_restrictions = data.get('dietary_restrictions') or 'None provided'
+        couple_note = data.get('couple_note') or 'None provided'
         if html:
             dietary_restrictions = escape(dietary_restrictions)
+            couple_note = escape(couple_note)
             return (
                 f"<strong>Welcome Party:</strong> {welcome_party}{separator}"
                 f"<strong>Party size:</strong> {data['party_size']}{separator}"
                 f"<strong>Dietary restrictions:</strong> "
                 f"{dietary_restrictions}{separator}"
+                f"<strong>Note:</strong> {couple_note}{separator}"
             )
         return (
             f"Welcome Party: {welcome_party}{separator}"
             f"Party size: {data['party_size']}{separator}"
             f"Dietary restrictions: {dietary_restrictions}{separator}"
+            f"Note: {couple_note}{separator}"
         )
 
     decline_note = data.get('decline_note') or 'None provided'

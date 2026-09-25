@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}FAQ - Menke & Vacca Wedding{% endblock %}
+
+{% block extra_css %}
+<style>
+    .faq-section {
+        background: var(--light-bg);
+    }
+
+    .faq-list {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .faq-item {
+        padding: 2rem 0;
+        border-bottom: 1px solid var(--secondary-color);
+    }
+
+    .faq-item:first-child {
+        padding-top: 0;
+    }
+
+    .faq-item h2 {
+        color: var(--primary-color);
+        font-family: 'Playfair Display', serif;
+        font-size: 1.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .faq-link {
+        color: var(--primary-color);
+        font-weight: 700;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="hero-section" style="padding: 150px 0 100px;">
+    <div class="container">
+        <h1 class="hero-title">Frequently Asked Questions</h1>
+        <p class="hero-subtitle">A few helpful details for your trip to Arizona.</p>
+    </div>
+</section>
+
+<section class="section-padding faq-section">
+    <div class="container">
+        <div class="faq-list">
+            <article class="faq-item">
+                <h2>What airport should we fly into?</h2>
+                <p>
+                    Both Phoenix Sky Harbor International Airport (PHX) and
+                    Phoenix-Mesa Gateway Airport (AZA) are good options. PHX is closer to
+                    the resort and offers a wider selection of airlines and flights. AZA is
+                    a smaller, quieter airport about 20 minutes farther from the resort and
+                    is served primarily by Allegiant.
+                </p>
+            </article>
+
+            <article class="faq-item">
+                <h2>What else is there to do?</h2>
+                <p>
+                    The resort has plenty of activities on site, but there is also lots to
+                    explore around Phoenix and Scottsdale. December is a beautiful time to
+                    enjoy one of the area's
+                    <a class="faq-link" href="https://www.visitphoenix.com/sonoran-desert/parks-trails/"
+                       target="_blank" rel="noopener noreferrer">popular hiking trails</a>.
+                    You can also visit the
+                    <a class="faq-link" href="https://mim.org/" target="_blank"
+                       rel="noopener noreferrer">Musical Instrument Museum</a>, Brandon's
+                    favorite, wander through
+                    <a class="faq-link" href="https://www.experiencescottsdale.com/old-town/"
+                       target="_blank" rel="noopener noreferrer">Old Town Scottsdale</a>,
+                    or spend some time at the
+                    <a class="faq-link" href="https://dbg.org/" target="_blank"
+                       rel="noopener noreferrer">Desert Botanical Garden</a>, Sofie's favorite.
+                </p>
+            </article>
+
+            <article class="faq-item">
+                <h2>Still have a question?</h2>
+                <p>
+                    Visit our <a class="faq-link" href="{{ url_for('contact') }}">Contact Us</a>
+                    page and send us a note. We will be happy to help.
+                </p>
+            </article>
+        </div>
+    </div>
+</section>
+{% endblock %}
