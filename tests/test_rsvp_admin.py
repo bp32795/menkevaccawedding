@@ -170,6 +170,55 @@ class RSVPAdminTestCase(unittest.TestCase):
         return soup.find('input', {'name': 'csrf_token'})['value']
 
     @patch('app.get_response_container')
+    def test_filters_keep_household_responses_together(self, mock_get_container):
+        """Filter metadata preserves shared cells and never searches unrelated dropdown options."""
+        self.mock_tracking.return_value = (
+            [
+                {'id': 'household-1', 'names': ['Taylor Smith', 'Jordan Smith']},
+                {'id': 'household-2', 'names': ['Casey Brown']}
+            ],
+            []
+        )
+        mock_get_container.return_value.query_items.return_value = [
+            {
+                'id': 'rsvp-1', 'party_names': 'Taylor Smith',
+                'attending': 'yes', 'party_size': 1, 'welcome_party': 'no'
+            },
+            {
+                'id': 'rsvp-2', 'party_names': 'Jordan Smith',
+                'attending': 'no', 'party_size': 0, 'welcome_party': ''
+            }
+        ]
+        response = self.client.get('/rsvp/admin', auth=self.auth)
+        soup = BeautifulSoup(response.data, 'html.parser')
+        scopes = soup.select('[data-filter-scope]')
+        self.assertEqual(len(scopes), 2)
+        for scope in scopes:
+            self.assertIsNotNone(scope.select_one('[data-filter-controls]'))
+            for field in ('search', 'attending', 'welcome_party'):
+                self.assertIsNotNone(scope.select_one(f'[data-filter-field="{field}"]'))
+            self.assertIsNotNone(scope.select_one('[data-filter-clear]'))
+            self.assertIsNotNone(scope.select_one('[data-filter-count][aria-live="polite"]'))
+            self.assertIsNotNone(scope.select_one('[data-filter-empty][hidden]'))
+        self.assertIsNone(scopes[0].select_one('[data-filter-field="status"]'))
+        self.assertIsNotNone(scopes[1].select_one('[data-filter-field="status"]'))
+        households = scopes[1].select('tbody[data-filter-group]')
+        self.assertEqual(len(households), 2)
+        grouped = next(group for group in households if group.select_one('#household-1'))
+        self.assertEqual(grouped['data-status'], 'Responded')
+        self.assertEqual(len(grouped.select('[data-response-row]')), 2)
+        self.assertIn('Taylor Smith', grouped['data-search-names'])
+        self.assertIn('Jordan Smith', grouped['data-search-names'])
+        self.assertNotIn('Casey Brown', grouped['data-search-names'])
+        awaiting = next(group for group in households if group.select_one('#household-2'))
+        self.assertEqual(awaiting['data-status'], 'Not responded')
+        self.assertEqual(awaiting.select_one('[data-response-row]')['data-attending'], '')
+        self.assertEqual(awaiting.select_one('[data-response-row]')['data-welcome-party'], '')
+        self.assertNotIn('Taylor Smith', awaiting['data-search-names'])
+        script = soup.find('script', src='/static/js/rsvp_admin_filters.js')
+        self.assertIsNotNone(script)
+
+    @patch('app.get_response_container')
     def test_manual_match_is_saved_and_visible_to_another_session(self, mock_get_container):
         """Manual matches persist in the database, not just the current browser session."""
         container = mock_get_container.return_value

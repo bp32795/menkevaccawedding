@@ -2,6 +2,47 @@
 
 {% block title %}RSVP Overview - Menke & Vacca Wedding{% endblock %}
 
+{% macro filter_controls(prefix, households=false) %}
+<form class="row g-3 align-items-end mb-3" data-filter-controls hidden
+      role="search" aria-label="{{ 'Household' if households else 'Submitted RSVP' }} filters">
+    <div class="col-12 col-md">
+        <label for="{{ prefix }}-search" class="form-label">Search names</label>
+        <input type="search" id="{{ prefix }}-search" class="form-control"
+               data-filter-field="search" placeholder="Enter a name" autocomplete="off">
+    </div>
+    {% if households %}
+    <div class="col-12 col-sm-6 col-md">
+        <label for="{{ prefix }}-status" class="form-label">RSVP status</label>
+        <select id="{{ prefix }}-status" class="form-select" data-filter-field="status">
+            <option value="">All statuses</option>
+            <option value="Responded">Responded</option>
+            <option value="Not responded">Not responded</option>
+            <option value="Needs review">Needs review</option>
+        </select>
+    </div>
+    {% endif %}
+    <div class="col-12 col-sm-6 col-md">
+        <label for="{{ prefix }}-attending" class="form-label">Attending</label>
+        <select id="{{ prefix }}-attending" class="form-select" data-filter-field="attending">
+            <option value="">All answers</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+        </select>
+    </div>
+    <div class="col-12 col-sm-6 col-md">
+        <label for="{{ prefix }}-welcome" class="form-label">Welcome party</label>
+        <select id="{{ prefix }}-welcome" class="form-select" data-filter-field="welcome_party">
+            <option value="">All answers</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+        </select>
+    </div>
+    <div class="col-12 col-sm-auto">
+        <button type="button" class="btn btn-outline-primary" data-filter-clear>Clear filters</button>
+    </div>
+</form>
+{% endmacro %}
+
 {% block extra_css %}
 <style>
     .rsvp-admin-container { padding-top: 100px; }
@@ -25,7 +66,10 @@
                 {{ tracking.unmatched_responses|length }} unmatched RSVP responses
             </span>
         </div>
+        <noscript><p class="text-muted">Enable JavaScript to filter the tables.</p></noscript>
         <h2 class="h4 serif-font">Submitted RSVPs</h2>
+        <div data-filter-scope data-filter-unit="RSVPs">
+        {{ filter_controls('responses') }}
         <div class="card">
             <div class="table-responsive">
                 <table class="table table-striped align-middle mb-0">
@@ -40,7 +84,10 @@
                     </thead>
                     <tbody>
                         {% for response in responses %}
-                        <tr>
+                        <tr data-filter-group data-response-row
+                            data-search-names="{{ response.party_names }}"
+                            data-attending="{{ 'yes' if response.attending == 'yes' else 'no' }}"
+                            data-welcome-party="{{ 'yes' if response.welcome_party == 'yes' else 'no' }}">
                             <td>{{ 'Yes' if response.attending == 'yes' else 'No' }}</td>
                             <td>{{ response.party_size if response.attending == 'yes' else 0 }}</td>
                             <td>{{ 'Yes' if response.welcome_party == 'yes' else 'No' }}</td>
@@ -56,6 +103,9 @@
                     </tbody>
                 </table>
             </div>
+            <p class="text-muted mt-2" data-filter-count aria-live="polite" hidden></p>
+            <p class="alert alert-info mt-2" data-filter-empty hidden>No RSVPs match these filters.</p>
+            </div>
         </div>
         <h2 class="h4 serif-font mt-5">Guest List by Household</h2>
         <p class="text-muted">
@@ -63,6 +113,8 @@
             possible matches are flagged for review. Manual selections override automatic matching.
         </p>
         {% if tracking.households %}
+        <div data-filter-scope data-filter-unit="households">
+        {{ filter_controls('households', households=true) }}
         <div class="table-responsive">
             <table class="table table-bordered align-middle">
                 <caption class="visually-hidden">Household responses and manual matching</caption>
@@ -76,11 +128,15 @@
                         <th scope="col">Matching</th>
                     </tr>
                 </thead>
-                <tbody>
                     {% for household in tracking.households %}
+                <tbody data-filter-group data-status="{{ household.status }}"
+                       data-search-names="{{ household.names|join(' ') }}{% for matched in household.responses %} {{ matched.party_names }}{% endfor %}">
                     {% set household_responses = household.responses or [none] %}
                     {% for response in household_responses %}
-                    <tr{% if loop.first %} id="{{ household.id }}"{% endif %}>
+                    <tr{% if loop.first %} id="{{ household.id }}"{% endif %}
+                        data-response-row
+                        data-attending="{{ ('yes' if response.attending == 'yes' else 'no') if response else '' }}"
+                        data-welcome-party="{{ ('yes' if response.welcome_party == 'yes' else 'no') if response else '' }}">
                         {% if loop.first %}
                         <th scope="rowgroup" rowspan="{{ household_responses|length }}"
                             class="party-names">{{ household.names|join('\n') }}</th>
@@ -151,9 +207,12 @@
                         {% endif %}
                     </tr>
                     {% endfor %}
-                    {% endfor %}
                 </tbody>
+                    {% endfor %}
             </table>
+        </div>
+        <p class="text-muted mt-2" data-filter-count aria-live="polite" hidden></p>
+        <p class="alert alert-info mt-2" data-filter-empty hidden>No households match these filters.</p>
         </div>
         {% else %}
         <div class="alert alert-info" role="status">
@@ -171,4 +230,8 @@
         {% endif %}
     </div>
 </section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/rsvp_admin_filters.js') }}" defer></script>
 {% endblock %}

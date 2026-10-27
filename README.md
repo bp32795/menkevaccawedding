@@ -123,6 +123,17 @@ require the same password and a session-specific CSRF token. They never change g
 submitted RSVP answers. Household totals count households, not people; use the submitted
 RSVP table for attendance counts without double-counting shared responses.
 
+Both tables have independent name, attendance, and welcome-party filters. The household
+table also filters by RSVP status. Filters combine, and name search ignores case,
+accents, and punctuation. Household searches include invited and matched names, not
+every name in the manual-match dropdown. Attendance filters require an actual matched
+RSVP; unanswered households are not treated as declines. When both answer filters are
+selected, the same RSVP must satisfy both. Entire households stay together, including
+manual matching controls. Visible-result counts and empty-result messages update as
+you filter; summary totals and saved matches are unchanged. **Clear filters** restores
+all rows. Filtering runs in the browser without sending search terms to the server
+and requires JavaScript. Filters reset when the page reloads or a match is saved.
+
 ## Development Features
 
 ### Built-in Email Server 🎯
