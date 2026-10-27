@@ -482,7 +482,6 @@ def rsvp():
     )
 
 
-@app.route('/rsvp/edit/<token>')
 @app.after_request
 def protect_rsvp_admin_response(response):
     """Prevent caching, indexing, and referrer leaks for the private RSVP page."""
@@ -575,6 +574,7 @@ def rsvp_admin():
     )
 
 
+@app.route('/rsvp/edit/<token>')
 def edit_rsvp_from_link(token):
     """Authorize an RSVP edit from a signed confirmation-email link."""
     rsvp_record = get_rsvp_from_edit_token(token)
