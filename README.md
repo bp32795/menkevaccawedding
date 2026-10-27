@@ -77,6 +77,52 @@ A beautiful, modern wedding website built with Flask, featuring RSVP functionali
 
    Visit `http://localhost:5000` in your browser.
 
+## Private RSVP Overview
+
+The private `/rsvp/admin` page is omitted from public navigation and requires
+HTTP Basic authentication. Use username `admin` and the password configured in
+`RSVP_ADMIN_PASSWORD`. Set this environment variable in your local `.env` and in
+Azure App Service application settings, then restart the app. Never commit the
+password to source control. The page is disabled when the password is unset.
+Use HTTPS in production to protect the credentials in transit.
+
+The overview shows only attendance (Yes/No), number attending, welcome-party
+attendance (Yes/No), and party names, sorted by names. Declined RSVPs show zero
+attendees and No for the welcome party. Emails, notes, and dietary information
+are not fetched or included in the page. Responses are marked private/no-store
+and noindex/nofollow. Browser-managed credentials may remain active until you
+close the browser or private browsing session.
+
+### Household tracking and manual matching
+
+Import the invitation CSV into the response database using:
+
+```powershell
+python import_guest_list.py export.csv --azure-app menkevaccawedding --resource-group rg-menkevaccawedding
+```
+
+Omit the Azure arguments to use the local environment's database settings. The importer
+validates the CSV before writing and stores only primary, partner, and child names.
+It never uploads the CSV, emails, phone numbers, or addresses. Reimporting unchanged
+households is idempotent. Renamed or removed households need separate database cleanup;
+the importer does not delete existing households or saved matches.
+
+The overview lists every imported household as Responded, Not responded, or Needs review.
+Declines count as responses. Automatic matching requires an unambiguous full name;
+duplicate names, responses spanning households, and similar spellings are flagged for
+review instead of being silently accepted. First-name-only guests are not auto-matched.
+Unmatched RSVP responses remain visible for manual assignment.
+
+Expand **Match manually** beside a household to select one or more RSVP responses, then
+choose **Save match**. A response covering multiple households can be selected for each.
+Saving an empty selection explicitly marks that household as not responded. **Use automatic
+match** removes the override. Manual assignments are stored in Cosmos DB and survive
+restarts and deployments. Manual assignments take priority over automatic matching;
+RSVPs explicitly assigned elsewhere are not auto-assigned again. Matching controls
+require the same password and a session-specific CSRF token. They never change guests'
+submitted RSVP answers. Household totals count households, not people; use the submitted
+RSVP table for attendance counts without double-counting shared responses.
+
 ## Development Features
 
 ### Built-in Email Server 🎯

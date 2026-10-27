@@ -7,17 +7,20 @@ from flask import Flask, render_template, request, jsonify, flash, redirect, url
 from flask_mail import Mail, Message
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from markupsafe import escape
+import hmac
 import os
 from datetime import datetime, timezone
 import random
 import re
 import requests
+import secrets
 from bs4 import BeautifulSoup
 import json
 import logging
 import uuid
 from dotenv import load_dotenv
 
+from rsvp_tracking import build_household_tracking, query_household_documents
 # Try to import Azure Communication Services (optional)
 try:
     from azure.communication.email import EmailClient
@@ -64,6 +67,7 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
+app.config['RSVP_ADMIN_PASSWORD'] = os.environ.get('RSVP_ADMIN_PASSWORD', '')
 # Determine if we should use local SMTP server
 use_local_smtp = (
     os.environ.get('FLASK_ENV') == 'development' and 
@@ -479,6 +483,98 @@ def rsvp():
 
 
 @app.route('/rsvp/edit/<token>')
+@app.after_request
+def protect_rsvp_admin_response(response):
+    """Prevent caching, indexing, and referrer leaks for the private RSVP page."""
+    if request.endpoint == 'rsvp_admin':
+        response.headers['Cache-Control'] = 'no-store, private'
+        response.headers['X-Robots-Tag'] = 'noindex, nofollow'
+        response.headers['Referrer-Policy'] = 'no-referrer'
+    return response
+
+
+@app.route('/rsvp/admin', methods=['GET', 'POST'])
+def rsvp_admin():
+    """Show private household tracking and save CSRF-protected manual RSVP matches."""
+    password = app.config['RSVP_ADMIN_PASSWORD']
+    if not password:
+        app.logger.error('RSVP_ADMIN_PASSWORD is not configured; RSVP overview is disabled')
+        return render_template(
+            'rsvp_admin.html', error='The RSVP overview has not been configured.'
+        ), 503
+
+    authorization = request.authorization
+    if (not authorization or authorization.type != 'basic' or
+            authorization.username != 'admin' or
+            not hmac.compare_digest(
+                (authorization.password or '').encode('utf-8'), password.encode('utf-8'))):
+        return (
+            'Authentication is required to view RSVP information.',
+            401,
+            {'WWW-Authenticate': 'Basic realm="RSVP overview", charset="UTF-8"'}
+        )
+
+    if request.method == 'POST':
+        csrf_token = session.get('rsvp_admin_csrf', '')
+        submitted_token = request.form.get('csrf_token', '')
+        if not csrf_token or not hmac.compare_digest(
+                csrf_token.encode('utf-8'), submitted_token.encode('utf-8')):
+            app.logger.warning('Rejected RSVP household match with invalid CSRF token')
+            return render_template(
+                'rsvp_admin.html', error='Your session has expired. Reload the page and try again.'
+            ), 400
+
+    container = get_response_container()
+    if container is None:
+        app.logger.error('RSVP overview could not connect to the response database')
+        return render_template(
+            'rsvp_admin.html', error='RSVP information is currently unavailable.'
+        ), 503
+
+    responses = list(container.query_items(
+        query=(
+            'SELECT c.id, c.attending, c.party_size, c.welcome_party, c.party_names '
+            'FROM c WHERE c.document_type = @document_type ORDER BY c.party_names'
+        ),
+        parameters=[{'name': '@document_type', 'value': 'rsvp'}],
+        enable_cross_partition_query=True
+    ))
+    households, overrides = query_household_documents(container)
+    if request.method == 'POST':
+        household_id = request.form.get('household_id', '')
+        response_ids = list(dict.fromkeys(request.form.getlist('rsvp_ids')))
+        action = request.form.get('action')
+        valid_households = {household['id'] for household in households}
+        valid_responses = {response['id'] for response in responses}
+        if (household_id not in valid_households or
+                not set(response_ids).issubset(valid_responses) or
+                action not in {'save_match', 'reset_match'}):
+            app.logger.warning('Rejected invalid RSVP household match selection')
+            return render_template(
+                'rsvp_admin.html', error='Invalid match selection. Reload the page and try again.'
+            ), 400
+        match_id = f'match-{household_id}'
+        if action == 'save_match':
+            container.upsert_item(body={
+                'id': match_id,
+                'document_type': 'rsvp_household_match',
+                'household_id': household_id,
+                'rsvp_ids': response_ids,
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            })
+        elif any(override['id'] == match_id for override in overrides):
+            container.delete_item(item=match_id, partition_key=match_id)
+        return redirect(url_for('rsvp_admin', _anchor=household_id), code=303)
+
+    if 'rsvp_admin_csrf' not in session:
+        session['rsvp_admin_csrf'] = secrets.token_urlsafe(32)
+    tracking = build_household_tracking(households, responses, overrides)
+    return render_template(
+        'rsvp_admin.html', responses=responses, tracking=tracking,
+        csrf_token=session['rsvp_admin_csrf']
+    )
+
+
 def edit_rsvp_from_link(token):
     """Authorize an RSVP edit from a signed confirmation-email link."""
     rsvp_record = get_rsvp_from_edit_token(token)

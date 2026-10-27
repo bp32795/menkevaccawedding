@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block title %}RSVP Overview - Menke & Vacca Wedding{% endblock %}
+
+{% block extra_css %}
+<style>
+    .rsvp-admin-container { padding-top: 100px; }
+    .party-names { white-space: pre-line; min-width: 200px; }
+    .match-controls { min-width: 260px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="rsvp-admin-container">
+    <div class="container py-5">
+        <h1 class="serif-font mb-4">RSVP Overview</h1>
+        {% if error %}
+        <div class="alert alert-danger" role="alert">{{ error }}</div>
+        {% else %}
+        <div class="d-flex flex-wrap gap-3 mb-4" aria-label="Household RSVP totals">
+            <span class="badge bg-success fs-6">{{ tracking.responded_count }} responded</span>
+            <span class="badge bg-secondary fs-6">{{ tracking.awaiting_count }} not responded</span>
+            <span class="badge bg-warning text-dark fs-6">{{ tracking.review_count }} need review</span>
+            <span class="badge bg-secondary fs-6">
+                {{ tracking.unmatched_responses|length }} unmatched RSVP responses
+            </span>
+        </div>
+        <h2 class="h4 serif-font">Submitted RSVPs</h2>
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-striped align-middle mb-0">
+                    <caption class="visually-hidden">Guest RSVP responses</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Attending</th>
+                            <th scope="col">Number attending</th>
+                            <th scope="col">Welcome party</th>
+                            <th scope="col">Names</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for response in responses %}
+                        <tr>
+                            <td>{{ 'Yes' if response.attending == 'yes' else 'No' }}</td>
+                            <td>{{ response.party_size if response.attending == 'yes' else 0 }}</td>
+                            <td>{{ 'Yes' if response.welcome_party == 'yes' else 'No' }}</td>
+                            <td class="party-names">{{ response.party_names }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-4">
+                                No RSVPs have been submitted yet.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <h2 class="h4 serif-font mt-5">Guest List by Household</h2>
+        <p class="text-muted">
+            A No RSVP still counts as responded. Only unique full-name matches are automatic;
+            possible matches are flagged for review. Manual selections override automatic matching.
+        </p>
+        {% if tracking.households %}
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle">
+                <caption class="visually-hidden">Household responses and manual matching</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Names</th>
+                        <th scope="col">RSVP status</th>
+                        <th scope="col">Attending</th>
+                        <th scope="col">Number attending</th>
+                        <th scope="col">Welcome party</th>
+                        <th scope="col">Matching</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for household in tracking.households %}
+                    {% set household_responses = household.responses or [none] %}
+                    {% for response in household_responses %}
+                    <tr{% if loop.first %} id="{{ household.id }}"{% endif %}>
+                        {% if loop.first %}
+                        <th scope="rowgroup" rowspan="{{ household_responses|length }}"
+                            class="party-names">{{ household.names|join('\n') }}</th>
+                        <td rowspan="{{ household_responses|length }}">
+                            <span class="badge {% if household.status == 'Responded' %}bg-success{% elif household.status == 'Needs review' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                {{ household.status }}
+                            </span>
+                            <small class="d-block text-muted mt-1">
+                                {{ 'Manual' if household.manual else 'Automatic' }}
+                            </small>
+                            {% if household.missing_response %}
+                            <small class="d-block text-danger">
+                                A previously matched RSVP no longer exists. Please review.
+                            </small>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        <td>{{ ('Yes' if response.attending == 'yes' else 'No') if response else '-' }}</td>
+                        <td>{{ (response.party_size if response.attending == 'yes' else 0) if response else '-' }}</td>
+                        <td>{{ ('Yes' if response.welcome_party == 'yes' else 'No') if response else '-' }}</td>
+                        {% if loop.first %}
+                        <td rowspan="{{ household_responses|length }}" class="match-controls">
+                            {% for matched in household.responses %}
+                            <div class="small mb-2">
+                                <strong>Matched RSVP:</strong> {{ matched.party_names }}
+                            </div>
+                            {% endfor %}
+                            {% if household.suggestions %}
+                            <div class="small mb-2">
+                                <strong>Possible matches (not confirmed):</strong>
+                                <ul class="mb-0">
+                                    {% for suggestion in household.suggestions %}
+                                    <li>{{ suggestion.party_names }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
+                            <details>
+                                <summary class="text-primary">Match manually</summary>
+                                <form method="post" action="{{ url_for('rsvp_admin') }}" class="mt-2">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <input type="hidden" name="household_id" value="{{ household.id }}">
+                                    <label for="match-{{ household.id }}" class="form-label small">
+                                        Select every RSVP for this household
+                                    </label>
+                                    <select multiple name="rsvp_ids" id="match-{{ household.id }}"
+                                            class="form-select form-select-sm" size="5">
+                                        {% for option in responses %}
+                                        <option value="{{ option.id }}"{% if option.id in household.selected_ids %} selected{% endif %}>
+                                            {{ option.party_names }} ({{ 'Yes' if option.attending == 'yes' else 'No' }}, {{ option.party_size if option.attending == 'yes' else 0 }})
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <p class="form-text">
+                                        Use Ctrl/Command to select more than one or deselect.
+                                        Save with nothing selected to mark this household as not responded.
+                                        A shared RSVP can be assigned to more than one household.
+                                    </p>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <button class="btn btn-primary btn-sm" type="submit"
+                                                name="action" value="save_match">Save match</button>
+                                        <button class="btn btn-outline-primary btn-sm" type="submit"
+                                                name="action" value="reset_match">Use automatic match</button>
+                                    </div>
+                                </form>
+                            </details>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info" role="status">
+            No guest list has been imported yet.
+        </div>
+        {% endif %}
+        {% if tracking.unmatched_responses %}
+        <h2 class="h4 serif-font mt-4">RSVPs Not Yet Matched to a Household</h2>
+        <ul>
+            {% for response in tracking.unmatched_responses %}
+            <li>{{ response.party_names }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

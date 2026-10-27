@@ -30,6 +30,7 @@ env/
 
 # Environment Variables
 .env
+export.csv
 
 # IDE
 .vscode/settings.json

@@ -1,0 +1,253 @@
+"""Tests for the private, read-only RSVP overview."""
+
+import unittest
+from unittest.mock import Mock, patch
+
+from bs4 import BeautifulSoup
+
+from app import app
+
+
+class RSVPAdminTestCase(unittest.TestCase):
+    """Verify access control and the exact information exposed by the overview."""
+
+    def setUp(self):
+        """Create an isolated client and configure an overview password."""
+        self.config_patch = patch.dict(app.config, {
+            'TESTING': True,
+            'RSVP_ADMIN_PASSWORD': 'test-overview-password'
+        })
+        self.config_patch.start()
+        self.addCleanup(self.config_patch.stop)
+        self.client = app.test_client()
+        self.auth = ('admin', 'test-overview-password')
+        self.tracking_patch = patch('app.query_household_documents', return_value=([], []))
+        self.mock_tracking = self.tracking_patch.start()
+        self.addCleanup(self.tracking_patch.stop)
+
+    def assert_private_headers(self, response):
+        """Check that the overview cannot be cached or indexed."""
+        self.assertIn('no-store', response.headers['Cache-Control'])
+        self.assertIn('private', response.headers['Cache-Control'])
+        self.assertEqual(response.headers['X-Robots-Tag'], 'noindex, nofollow')
+        self.assertEqual(response.headers['Referrer-Policy'], 'no-referrer')
+
+    @patch('app.get_response_container')
+    def test_password_required_before_database_access(self, mock_get_container):
+        """Missing or incorrect credentials never fetch RSVP information."""
+        for auth in (None, ('admin', 'wrong'), ('guest', self.auth[1])):
+            with self.subTest(auth=auth):
+                response = self.client.get('/rsvp/admin', auth=auth)
+                self.assertEqual(response.status_code, 401)
+                self.assertIn('Basic', response.headers['WWW-Authenticate'])
+                self.assert_private_headers(response)
+        mock_get_container.assert_not_called()
+
+    @patch('app.get_response_container')
+    def test_unconfigured_password_disables_page(self, mock_get_container):
+        """An unset password fails closed rather than making the overview public."""
+        with patch.dict(app.config, {'RSVP_ADMIN_PASSWORD': ''}):
+            response = self.client.get('/rsvp/admin', auth=self.auth)
+        self.assertEqual(response.status_code, 503)
+        self.assert_private_headers(response)
+        mock_get_container.assert_not_called()
+
+    @patch('app.get_response_container')
+    def test_overview_shows_only_requested_fields(self, mock_get_container):
+        """Both accepted and declined responses display only the four requested columns."""
+        container = mock_get_container.return_value
+        container.query_items.return_value = [
+            {
+                'id': 'rsvp-1',
+                'party_names': 'Taylor Smith\nJordan Smith',
+                'attending': 'yes',
+                'party_size': 2,
+                'welcome_party': 'yes',
+                'email': 'private@example.com',
+                'couple_note': 'Private couple note',
+                'dietary_restrictions': 'Private dietary information'
+            },
+            {
+                'id': 'rsvp-2',
+                'party_names': 'Alex <script>alert(1)</script>',
+                'attending': 'no',
+                'party_size': 0,
+                'welcome_party': '',
+                'email': 'another-private@example.com',
+                'decline_note': 'Private decline note'
+            },
+            {
+                'id': 'rsvp-3',
+                'party_names': 'Sam Jones',
+                'attending': 'yes',
+                'party_size': 1,
+                'welcome_party': 'no'
+            }
+        ]
+
+        response = self.client.get('/rsvp/admin', auth=self.auth)
+
+        self.assertEqual(response.status_code, 200)
+        self.assert_private_headers(response)
+        table = BeautifulSoup(response.data, 'html.parser').find('table')
+        self.assertEqual(
+            [cell.get_text(strip=True) for cell in table.select('thead th')],
+            ['Attending', 'Number attending', 'Welcome party', 'Names']
+        )
+        self.assertEqual(
+            [[cell.get_text(strip=True) for cell in row.find_all('td')]
+             for row in table.select('tbody tr')],
+            [
+                ['Yes', '2', 'Yes', 'Taylor Smith\nJordan Smith'],
+                ['No', '0', 'No', 'Alex <script>alert(1)</script>'],
+                ['Yes', '1', 'No', 'Sam Jones']
+            ]
+        )
+        for private_value in (
+                b'private@example.com', b'another-private@example.com',
+                b'Private couple note', b'Private dietary information',
+                b'Private decline note', b'<script>alert(1)</script>'):
+            self.assertNotIn(private_value, response.data)
+        query_arguments = container.query_items.call_args.kwargs
+        self.assertEqual(
+            query_arguments['query'],
+            'SELECT c.id, c.attending, c.party_size, c.welcome_party, c.party_names '
+            'FROM c WHERE c.document_type = @document_type ORDER BY c.party_names'
+        )
+        self.assertEqual(
+            query_arguments['parameters'],
+            [{'name': '@document_type', 'value': 'rsvp'}]
+        )
+        self.assertTrue(query_arguments['enable_cross_partition_query'])
+
+    @patch('app.get_response_container')
+    def test_empty_overview(self, mock_get_container):
+        """A genuinely empty response set is distinguished from a database failure."""
+        mock_get_container.return_value.query_items.return_value = []
+        response = self.client.get('/rsvp/admin', auth=self.auth)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'No RSVPs have been submitted yet.', response.data)
+
+    @patch('app.get_response_container', return_value=None)
+    def test_unavailable_database(self, mock_get_container):
+        """Database connection failures are visibly reported as unavailable."""
+        response = self.client.get('/rsvp/admin', auth=self.auth)
+        self.assertEqual(response.status_code, 503)
+        self.assertIn(b'RSVP information is currently unavailable.', response.data)
+        self.assertNotIn(b'No RSVPs have been submitted yet.', response.data)
+        self.assert_private_headers(response)
+
+    @patch('app.get_response_container')
+    def test_query_failure_is_not_an_empty_success(self, mock_get_container):
+        """Unexpected query failures use Flask's logged server-error handling."""
+        mock_get_container.return_value.query_items.side_effect = RuntimeError('query failed')
+        with patch.dict(app.config, {'PROPAGATE_EXCEPTIONS': False}):
+            with self.assertLogs(app.logger, level='ERROR'):
+                response = self.client.get('/rsvp/admin', auth=self.auth)
+        self.assertEqual(response.status_code, 500)
+        self.assert_private_headers(response)
+        self.assertNotIn(b'No RSVPs have been submitted yet.', response.data)
+
+    def test_overview_is_not_linked_from_public_pages(self):
+        """Public navigation and the RSVP page do not advertise the private overview."""
+        for path in ('/', '/rsvp'):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertNotIn(b'/rsvp/admin', response.data)
+
+    def prepare_manual_match(self, container):
+        """Set up household records and acquire a real form CSRF token."""
+        self.mock_tracking.return_value = (
+            [{'id': 'household-1', 'names': ['Taylor Smith', 'Jordan Smith']}], []
+        )
+        container.query_items.return_value = [{
+            'id': 'rsvp-1', 'party_names': 'Taylor Smith', 'attending': 'no',
+            'party_size': 0, 'welcome_party': ''
+        }]
+        response = self.client.get('/rsvp/admin', auth=self.auth)
+        self.assertEqual(response.status_code, 200)
+        soup = BeautifulSoup(response.data, 'html.parser')
+        return soup.find('input', {'name': 'csrf_token'})['value']
+
+    @patch('app.get_response_container')
+    def test_manual_match_is_saved_and_visible_to_another_session(self, mock_get_container):
+        """Manual matches persist in the database, not just the current browser session."""
+        container = mock_get_container.return_value
+        token = self.prepare_manual_match(container)
+        response = self.client.post('/rsvp/admin', auth=self.auth, data={
+            'csrf_token': token, 'household_id': 'household-1',
+            'rsvp_ids': ['rsvp-1'], 'action': 'save_match'
+        })
+        self.assertEqual(response.status_code, 303)
+        self.assert_private_headers(response)
+        saved = container.upsert_item.call_args.kwargs['body']
+        self.assertEqual(saved['document_type'], 'rsvp_household_match')
+        self.assertEqual(saved['household_id'], 'household-1')
+        self.assertEqual(saved['rsvp_ids'], ['rsvp-1'])
+        self.mock_tracking.return_value[1].append(saved)
+        other_client = app.test_client()
+        response = other_client.get('/rsvp/admin', auth=self.auth)
+        self.assertIn(b'Manual', response.data)
+        self.assertIn(b'1 responded', response.data)
+
+    @patch('app.get_response_container')
+    def test_manual_match_requires_authentication_and_csrf(self, mock_get_container):
+        """Basic credentials alone do not authorize a forged matching request."""
+        response = self.client.post('/rsvp/admin', data={})
+        self.assertEqual(response.status_code, 401)
+        response = self.client.post('/rsvp/admin', auth=self.auth, data={})
+        self.assertEqual(response.status_code, 400)
+        self.assert_private_headers(response)
+        mock_get_container.assert_not_called()
+
+    @patch('app.get_response_container')
+    def test_manual_match_rejects_unknown_records(self, mock_get_container):
+        """Only imported households and real RSVP responses may be linked."""
+        container = mock_get_container.return_value
+        token = self.prepare_manual_match(container)
+        for household_id, response_ids, action in (
+                ('unknown', ['rsvp-1'], 'save_match'),
+                ('household-1', ['unknown'], 'save_match'),
+                ('household-1', ['rsvp-1'], 'unknown')):
+            with self.subTest(household=household_id, responses=response_ids, action=action):
+                response = self.client.post('/rsvp/admin', auth=self.auth, data={
+                    'csrf_token': token, 'household_id': household_id,
+                    'rsvp_ids': response_ids, 'action': action
+                })
+                self.assertEqual(response.status_code, 400)
+        container.upsert_item.assert_not_called()
+        container.delete_item.assert_not_called()
+
+    @patch('app.get_response_container')
+    def test_can_clear_matches_and_restore_automatic_matching(self, mock_get_container):
+        """An empty override and removing an override have distinct meanings."""
+        container = mock_get_container.return_value
+        token = self.prepare_manual_match(container)
+        response = self.client.post('/rsvp/admin', auth=self.auth, data={
+            'csrf_token': token, 'household_id': 'household-1', 'action': 'save_match'
+        })
+        self.assertEqual(response.status_code, 303)
+        saved = container.upsert_item.call_args.kwargs['body']
+        self.assertEqual(saved['rsvp_ids'], [])
+        self.mock_tracking.return_value[1].append(saved)
+        response = self.client.post('/rsvp/admin', auth=self.auth, data={
+            'csrf_token': token, 'household_id': 'household-1', 'action': 'reset_match'
+        })
+        self.assertEqual(response.status_code, 303)
+        container.delete_item.assert_called_once_with(
+            item='match-household-1', partition_key='match-household-1')
+
+    @patch('app.get_response_container')
+    def test_manual_save_failure_is_reported(self, mock_get_container):
+        """A database write failure never redirects as if the match were saved."""
+        container = mock_get_container.return_value
+        token = self.prepare_manual_match(container)
+        container.upsert_item.side_effect = RuntimeError('write failed')
+        with patch.dict(app.config, {'PROPAGATE_EXCEPTIONS': False}):
+            with self.assertLogs(app.logger, level='ERROR'):
+                response = self.client.post('/rsvp/admin', auth=self.auth, data={
+                    'csrf_token': token, 'household_id': 'household-1',
+                    'rsvp_ids': ['rsvp-1'], 'action': 'save_match'
+                })
+        self.assertEqual(response.status_code, 500)
+        self.assert_private_headers(response)
