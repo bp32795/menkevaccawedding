@@ -494,7 +494,7 @@ def protect_rsvp_admin_response(response):
 
 @app.route('/rsvp/admin', methods=['GET', 'POST'])
 def rsvp_admin():
-    """Show private household tracking and save CSRF-protected manual RSVP matches."""
+    """Show private tracking and save CSRF-protected household matches and declines."""
     password = app.config['RSVP_ADMIN_PASSWORD']
     if not password:
         app.logger.error('RSVP_ADMIN_PASSWORD is not configured; RSVP overview is disabled')
@@ -547,20 +547,33 @@ def rsvp_admin():
         valid_responses = {response['id'] for response in responses}
         if (household_id not in valid_households or
                 not set(response_ids).issubset(valid_responses) or
-                action not in {'save_match', 'reset_match'}):
+                action not in {'save_match', 'reset_match', 'mark_no'} or
+                (action == 'mark_no' and response_ids)):
             app.logger.warning('Rejected invalid RSVP household match selection')
             return render_template(
                 'rsvp_admin.html', error='Invalid match selection. Reload the page and try again.'
             ), 400
         match_id = f'match-{household_id}'
-        if action == 'save_match':
-            container.upsert_item(body={
+        if action == 'mark_no':
+            tracking = build_household_tracking(households, responses, overrides)
+            household = next(row for row in tracking['households'] if row['id'] == household_id)
+            if household['responses']:
+                app.logger.warning('Rejected admin decline for a household with a submitted RSVP')
+                return render_template(
+                    'rsvp_admin.html',
+                    error='This household already has a submitted RSVP. Reload to review its answer.'
+                ), 409
+        if action in {'save_match', 'mark_no'}:
+            match = {
                 'id': match_id,
                 'document_type': 'rsvp_household_match',
                 'household_id': household_id,
                 'rsvp_ids': response_ids,
                 'updated_at': datetime.now(timezone.utc).isoformat()
-            })
+            }
+            if action == 'mark_no':
+                match['admin_declined'] = True
+            container.upsert_item(body=match)
         elif any(override['id'] == match_id for override in overrides):
             container.delete_item(item=match_id, partition_key=match_id)
         return redirect(url_for('rsvp_admin', _anchor=household_id), code=303)

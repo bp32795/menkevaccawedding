@@ -59,7 +59,7 @@ def query_household_documents(container):
     ))
     overrides = list(container.query_items(
         query=(
-            'SELECT c.id, c.household_id, c.rsvp_ids FROM c '
+            'SELECT c.id, c.household_id, c.rsvp_ids, c.admin_declined FROM c '
             'WHERE c.document_type = @document_type'
         ),
         parameters=[{'name': '@document_type', 'value': 'rsvp_household_match'}],
@@ -77,6 +77,7 @@ def build_household_tracking(households, responses, overrides):
             'responses': [],
             'suggestions': [],
             'manual': False,
+            'admin_declined': False,
             'missing_response': False
         }
         for household in households
@@ -98,6 +99,7 @@ def build_household_tracking(households, responses, overrides):
     for household_id, row in rows.items():
         if household_id in override_index:
             row['manual'] = True
+            row['admin_declined'] = override_index[household_id].get('admin_declined', False)
             for response_id in override_index[household_id]['rsvp_ids']:
                 if response_id in response_index:
                     row['responses'].append(response_index[response_id])
@@ -117,7 +119,7 @@ def build_household_tracking(households, responses, overrides):
         candidates = set().union(*(name_index[name] for name in exact_names))
         if len(unique_households) == 1:
             household_id = next(iter(unique_households))
-            if not rows[household_id]['manual']:
+            if not rows[household_id]['manual'] or rows[household_id]['admin_declined']:
                 rows[household_id]['responses'].append(response)
             continue
         if not candidates:
@@ -134,9 +136,12 @@ def build_household_tracking(households, responses, overrides):
                 rows[household_id]['suggestions'].append(response)
 
     for row in rows.values():
+        if row['admin_declined'] and row['responses']:
+            row['admin_declined'] = False
+            row['manual'] = False
         if row['missing_response'] or row['suggestions']:
             row['status'] = 'Needs review'
-        elif row['responses']:
+        elif row['responses'] or row['admin_declined']:
             row['status'] = 'Responded'
         else:
             row['status'] = 'Not responded'

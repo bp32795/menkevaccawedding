@@ -160,6 +160,7 @@
         <p class="text-muted">
             A No RSVP still counts as responded. Only unique full-name matches are automatic;
             possible matches are flagged for review. Manual selections override automatic matching.
+            Mark No records a known decline for the whole household without emailing guests.
         </p>
         {% if tracking.households %}
         <div data-filter-scope data-filter-unit="households">
@@ -184,8 +185,8 @@
                     {% for response in household_responses %}
                     <tr{% if loop.first %} id="{{ household.id }}"{% endif %}
                         data-response-row
-                        data-attending="{{ ('yes' if response.attending == 'yes' else 'no') if response else '' }}"
-                        data-welcome-party="{{ ('yes' if response.welcome_party == 'yes' else 'no') if response else '' }}">
+                        data-attending="{{ ('yes' if response.attending == 'yes' else 'no') if response else ('no' if household.admin_declined else '') }}"
+                        data-welcome-party="{{ ('yes' if response.welcome_party == 'yes' else 'no') if response else ('no' if household.admin_declined else '') }}">
                         {% if loop.first %}
                         <th scope="rowgroup" rowspan="{{ household_responses|length }}"
                             class="party-names">{{ household.names|join('\n') }}</th>
@@ -194,7 +195,7 @@
                                 {{ household.status }}
                             </span>
                             <small class="d-block text-muted mt-1">
-                                {{ 'Manual' if household.manual else 'Automatic' }}
+                                {{ 'Admin-marked No' if household.admin_declined else ('Manual' if household.manual else 'Automatic') }}
                             </small>
                             {% if household.missing_response %}
                             <small class="d-block text-danger">
@@ -203,11 +204,25 @@
                             {% endif %}
                         </td>
                         {% endif %}
-                        <td>{{ ('Yes' if response.attending == 'yes' else 'No') if response else '-' }}</td>
-                        <td>{{ (response.party_size if response.attending == 'yes' else 0) if response else '-' }}</td>
-                        <td>{{ ('Yes' if response.welcome_party == 'yes' else 'No') if response else '-' }}</td>
+                        <td>{{ ('Yes' if response.attending == 'yes' else 'No') if response else ('No' if household.admin_declined else '-') }}</td>
+                        <td>{{ (response.party_size if response.attending == 'yes' else 0) if response else (0 if household.admin_declined else '-') }}</td>
+                        <td>{{ ('Yes' if response.welcome_party == 'yes' else 'No') if response else ('No' if household.admin_declined else '-') }}</td>
                         {% if loop.first %}
                         <td rowspan="{{ household_responses|length }}" class="match-controls">
+                            {% if not household.responses %}
+                            <form method="post" action="{{ url_for('rsvp_admin') }}" class="mb-3">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <input type="hidden" name="household_id" value="{{ household.id }}">
+                                {% if household.admin_declined %}
+                                <button class="btn btn-outline-secondary btn-sm" type="submit"
+                                        name="action" value="reset_match">Undo Mark No</button>
+                                {% else %}
+                                <button class="btn btn-outline-danger btn-sm" type="submit"
+                                        name="action" value="mark_no">Mark No</button>
+                                <small class="d-block text-muted mt-1">Applies to everyone in this household.</small>
+                                {% endif %}
+                            </form>
+                            {% endif %}
                             {% for matched in household.responses %}
                             <div class="small mb-2">
                                 <strong>Matched RSVP:</strong> {{ matched.party_names }}

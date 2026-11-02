@@ -298,6 +298,112 @@ class RSVPAdminTestCase(unittest.TestCase):
         self.assertIsNotNone(script)
 
     @patch('app.get_response_container')
+    @patch('app.send_and_record_rsvp_notifications')
+    def test_admin_can_mark_no_and_undo_without_guest_emails(
+            self, mock_send_emails, mock_get_container):
+        """Admin declines persist across sessions, update totals, and can be undone."""
+        container = mock_get_container.return_value
+        token = self.prepare_manual_match(container)
+        container.query_items.return_value = []
+        response = self.client.post('/rsvp/admin', auth=self.auth, data={
+            'csrf_token': token, 'household_id': 'household-1', 'action': 'mark_no'
+        })
+        self.assertEqual(response.status_code, 303)
+        self.assert_private_headers(response)
+        saved = container.upsert_item.call_args.kwargs['body']
+        self.assertEqual(saved['id'], 'match-household-1')
+        self.assertTrue(saved['admin_declined'])
+        self.assertEqual(saved['rsvp_ids'], [])
+        self.mock_tracking.return_value[1].append(saved)
+
+        other_client = app.test_client()
+        response = other_client.get('/rsvp/admin', auth=self.auth)
+        soup = BeautifulSoup(response.data, 'html.parser')
+        row = soup.select_one('#household-1')
+        self.assertEqual(row['data-attending'], 'no')
+        self.assertEqual(row['data-welcome-party'], 'no')
+        self.assertEqual(row.find_parent('tbody')['data-status'], 'Responded')
+        self.assertIn('Admin-marked No', row.get_text())
+        self.assertIn('Undo Mark No', row.get_text())
+        self.assertEqual([cell.get_text(strip=True) for cell in row.find_all('td')][1:4],
+                         ['No', '0', 'No'])
+        self.assertIsNone(row.select_one('button[value="mark_no"]'))
+        for key in ('attending', 'outstanding', 'potential'):
+            self.assertEqual(soup.select_one(f'[data-guest-total="{key}"]').get_text(strip=True), '0')
+        container.query_items.return_value = [{
+            'id': 'later-response', 'party_names': 'Taylor Smith',
+            'attending': 'yes', 'party_size': 2, 'welcome_party': 'yes'
+        }]
+        later = other_client.get('/rsvp/admin', auth=self.auth)
+        later_soup = BeautifulSoup(later.data, 'html.parser')
+        self.assertEqual(
+            later_soup.select_one('[data-guest-total="attending"]').get_text(strip=True), '2')
+        self.assertEqual(later_soup.select_one('#household-1')['data-attending'], 'yes')
+        self.assertNotIn('Admin-marked No', later_soup.select_one('#household-1').get_text())
+        self.assertIsNone(later_soup.select_one('#household-1 button[value="mark_no"]'))
+        container.query_items.return_value = []
+        token = soup.select_one('input[name="csrf_token"]')['value']
+        response = other_client.post('/rsvp/admin', auth=self.auth, data={
+            'csrf_token': token, 'household_id': 'household-1', 'action': 'reset_match'
+        })
+        self.assertEqual(response.status_code, 303)
+        container.delete_item.assert_called_once_with(
+            item='match-household-1', partition_key='match-household-1')
+        self.mock_tracking.return_value[1].clear()
+        response = other_client.get('/rsvp/admin', auth=self.auth)
+        soup = BeautifulSoup(response.data, 'html.parser')
+        self.assertEqual(soup.select_one('[data-guest-total="outstanding"]').get_text(strip=True), '2')
+        self.assertIsNotNone(soup.select_one('#household-1 button[value="mark_no"]'))
+        mock_send_emails.assert_not_called()
+
+    @patch('app.get_response_container')
+    def test_mark_no_does_not_override_a_submitted_rsvp(self, mock_get_container):
+        """A stale admin form cannot replace a guest's actual response."""
+        container = mock_get_container.return_value
+        token = self.prepare_manual_match(container)
+        for attending in ('yes', 'no'):
+            with self.subTest(attending=attending):
+                container.query_items.return_value[0]['attending'] = attending
+                response = self.client.post('/rsvp/admin', auth=self.auth, data={
+                    'csrf_token': token, 'household_id': 'household-1', 'action': 'mark_no'
+                })
+                self.assertEqual(response.status_code, 409)
+                self.assertIn(b'already has a submitted RSVP', response.data)
+        container.upsert_item.assert_not_called()
+
+    @patch('app.get_response_container')
+    def test_mark_no_requires_valid_household_authentication_and_csrf(self, mock_get_container):
+        """Decline controls use the same authorization and validation as manual matching."""
+        data = {'household_id': 'household-1', 'action': 'mark_no'}
+        self.assertEqual(self.client.post('/rsvp/admin', data=data).status_code, 401)
+        self.assertEqual(
+            self.client.post('/rsvp/admin', auth=self.auth, data=data).status_code, 400)
+        mock_get_container.assert_not_called()
+        container = mock_get_container.return_value
+        token = self.prepare_manual_match(container)
+        for household_id, ids in (('unknown', []), ('household-1', ['rsvp-1'])):
+            response = self.client.post('/rsvp/admin', auth=self.auth, data={
+                'csrf_token': token, 'household_id': household_id,
+                'rsvp_ids': ids, 'action': 'mark_no'
+            })
+            self.assertEqual(response.status_code, 400)
+        container.upsert_item.assert_not_called()
+
+    @patch('app.get_response_container')
+    def test_mark_no_write_failure_is_reported(self, mock_get_container):
+        """Failed decline writes cannot look like successful updates."""
+        container = mock_get_container.return_value
+        token = self.prepare_manual_match(container)
+        container.query_items.return_value = []
+        container.upsert_item.side_effect = RuntimeError('write failed')
+        with patch.dict(app.config, {'PROPAGATE_EXCEPTIONS': False}):
+            with self.assertLogs(app.logger, level='ERROR'):
+                response = self.client.post('/rsvp/admin', auth=self.auth, data={
+                    'csrf_token': token, 'household_id': 'household-1', 'action': 'mark_no'
+                })
+        self.assertEqual(response.status_code, 500)
+
+    @patch('app.get_response_container')
     def test_manual_match_is_saved_and_visible_to_another_session(self, mock_get_container):
         """Manual matches persist in the database, not just the current browser session."""
         container = mock_get_container.return_value

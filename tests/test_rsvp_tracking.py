@@ -53,6 +53,7 @@ class GuestImportTestCase(unittest.TestCase):
         households, overrides = query_household_documents(container)
         self.assertEqual(households[0]['names'], ['Taylor Smith'])
         self.assertEqual(overrides, [])
+        self.assertIn('c.admin_declined', container.query_items.call_args.kwargs['query'])
         for call in container.query_items.call_args_list:
             query = call.kwargs['query']
             self.assertNotIn('*', query)
@@ -151,6 +152,32 @@ class HouseholdMatchingTestCase(unittest.TestCase):
         result = self.track('Taylor Smith', [{'household_id': 'one', 'rsvp_ids': []}])
         self.assertEqual(self.household(result, 'one')['status'], 'Not responded')
         self.assertEqual(len(result['unmatched_responses']), 1)
+
+    def test_admin_decline_counts_as_responded_without_creating_an_rsvp(self):
+        """A known household decline is distinct from an empty matching override."""
+        result = build_household_tracking(self.households, [], [{
+            'household_id': 'one', 'rsvp_ids': [], 'admin_declined': True
+        }])
+        row = self.household(result, 'one')
+        self.assertTrue(row['admin_declined'])
+        self.assertEqual(row['status'], 'Responded')
+        self.assertEqual(row['responses'], [])
+        self.assertEqual(result['responded_count'], 1)
+        self.assertEqual(result['awaiting_count'], 3)
+
+    def test_guest_response_takes_precedence_over_admin_decline(self):
+        """A later unambiguous guest response must not be hidden by an admin decline."""
+        for attending in ('yes', 'no'):
+            with self.subTest(attending=attending):
+                result = self.track('Taylor Smith', [{
+                    'household_id': 'one', 'rsvp_ids': [], 'admin_declined': True
+                }], attending=attending)
+                row = self.household(result, 'one')
+                self.assertFalse(row['admin_declined'])
+                self.assertFalse(row['manual'])
+                self.assertEqual(row['status'], 'Responded')
+                self.assertEqual(len(row['responses']), 1)
+                self.assertEqual(result['unmatched_responses'], [])
 
     def test_shared_response_can_be_manually_assigned_to_multiple_households(self):
         """Human confirmation can associate a shared response with several invitations."""

@@ -133,12 +133,21 @@ require the same password and a session-specific CSRF token. They never change g
 submitted RSVP answers. Household badges count households, not people; the guest-count
 cards at the top count people.
 
+For a household without a matched RSVP, choose **Mark No** to record a known decline
+for everyone in the household. It shows as Responded with **Admin-marked No**, zero
+attendees, and No welcome-party attendance. These guests are removed from outstanding
+and potential guest counts. **Undo Mark No** restores automatic matching. Declines
+are saved in the database, send no emails, and do not create or edit guest-submitted
+RSVPs. A later unambiguous guest RSVP takes precedence over the admin decline.
+Households with a matched RSVP cannot be marked No; their submitted answer is preserved.
+
 Both tables have independent name, attendance, and welcome-party filters. The household
 table also filters by RSVP status. Filters combine, and name search ignores case,
 accents, and punctuation. Household searches include invited and matched names, not
-every name in the manual-match dropdown. Attendance filters require an actual matched
-RSVP; unanswered households are not treated as declines. When both answer filters are
-selected, the same RSVP must satisfy both. Entire households stay together, including
+every name in the manual-match dropdown. Attendance filters include matched
+RSVPs and admin-marked declines; unanswered households are not treated as declines.
+When both answer filters are selected, the same RSVP or admin decline must satisfy
+both. Entire households stay together, including
 manual matching controls. Visible-result counts and empty-result messages update as
 you filter; summary totals and saved matches are unchanged. **Clear filters** restores
 all rows. Filtering runs in the browser without sending search terms to the server
