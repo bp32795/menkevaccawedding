@@ -568,8 +568,17 @@ def rsvp_admin():
     if 'rsvp_admin_csrf' not in session:
         session['rsvp_admin_csrf'] = secrets.token_urlsafe(32)
     tracking = build_household_tracking(households, responses, overrides)
+    attending_guests = sum(
+        response['party_size'] for response in responses if response['attending'] == 'yes'
+    )
+    outstanding_guests = (
+        sum(len(household['names']) for household in tracking['households']
+            if household['status'] != 'Responded')
+        if households else None
+    )
     return render_template(
         'rsvp_admin.html', responses=responses, tracking=tracking,
+        attending_guests=attending_guests, outstanding_guests=outstanding_guests,
         csrf_token=session['rsvp_admin_csrf']
     )
 

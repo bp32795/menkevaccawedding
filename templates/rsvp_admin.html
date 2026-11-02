@@ -58,6 +58,55 @@
         {% if error %}
         <div class="alert alert-danger" role="alert">{{ error }}</div>
         {% else %}
+        <div class="mb-4" role="group" aria-label="Guest count totals">
+            <div class="row g-3">
+                <div class="col-12 col-md-4">
+                    <div class="card h-100 text-center">
+                        <div class="card-body">
+                            <h2 class="h6 text-muted">Confirmed attendees</h2>
+                            <p class="display-6 mb-0 text-success" data-guest-total="attending">
+                                {{ attending_guests }}
+                            </p>
+                            <small class="text-muted">People who said yes</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <div class="card h-100 text-center">
+                        <div class="card-body">
+                            <h2 class="h6 text-muted">Outstanding guests</h2>
+                            <p class="{{ 'display-6' if outstanding_guests is not none else 'h4' }} mb-0"
+                               data-guest-total="outstanding">
+                                {{ outstanding_guests if outstanding_guests is not none else 'Unavailable' }}
+                            </p>
+                            <small class="text-muted">People in unanswered or needs-review households</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <div class="card h-100 text-center">
+                        <div class="card-body">
+                            <h2 class="h6 text-muted">Potential guest count</h2>
+                            <p class="{{ 'display-6' if outstanding_guests is not none else 'h4' }} mb-0"
+                               data-guest-total="potential">
+                                {{ attending_guests + outstanding_guests if outstanding_guests is not none else 'Unavailable' }}
+                            </p>
+                            <small class="text-muted">If all outstanding guests say yes</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <p class="small text-muted mt-3 mb-0">
+                {% if outstanding_guests is none %}
+                Import the guest list to calculate outstanding guests and the potential guest count.
+                {% else %}
+                Counts are people, not households, and do not change with table filters.
+                Outstanding includes households marked Needs review. The potential count is an
+                estimate: unresolved or unmatched RSVPs may overlap with outstanding guests until
+                matching is resolved. Declined households are not outstanding.
+                {% endif %}
+            </p>
+        </div>
         <div class="d-flex flex-wrap gap-3 mb-4" aria-label="Household RSVP totals">
             <span class="badge bg-success fs-6">{{ tracking.responded_count }} responded</span>
             <span class="badge bg-secondary fs-6">{{ tracking.awaiting_count }} not responded</span>

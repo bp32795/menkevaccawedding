@@ -93,6 +93,16 @@ are not fetched or included in the page. Responses are marked private/no-store
 and noindex/nofollow. Browser-managed credentials may remain active until you
 close the browser or private browsing session.
 
+At the top, **Confirmed attendees** sums the party sizes of all Yes RSVPs, including
+unmatched responses, without counting shared household assignments twice.
+**Outstanding guests** counts imported people in Not responded and Needs review
+households; declined households are excluded. **Potential guest count** adds confirmed
+attendees and outstanding guests to estimate attendance if everyone outstanding says yes.
+Unresolved or unmatched responses can overlap with outstanding guests, so resolve matching
+issues to refine the estimate. Without an imported guest list, outstanding and potential
+counts show Unavailable rather than a misleading zero. All three totals stay unchanged
+when filtering the tables.
+
 ### Household tracking and manual matching
 
 Import the invitation CSV into the response database using:
@@ -120,8 +130,8 @@ match** removes the override. Manual assignments are stored in Cosmos DB and sur
 restarts and deployments. Manual assignments take priority over automatic matching;
 RSVPs explicitly assigned elsewhere are not auto-assigned again. Matching controls
 require the same password and a session-specific CSRF token. They never change guests'
-submitted RSVP answers. Household totals count households, not people; use the submitted
-RSVP table for attendance counts without double-counting shared responses.
+submitted RSVP answers. Household badges count households, not people; the guest-count
+cards at the top count people.
 
 Both tables have independent name, attendance, and welcome-party filters. The household
 table also filters by RSVP status. Filters combine, and name search ignores case,

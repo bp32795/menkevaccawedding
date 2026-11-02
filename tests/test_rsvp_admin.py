@@ -121,6 +121,85 @@ class RSVPAdminTestCase(unittest.TestCase):
         self.assertTrue(query_arguments['enable_cross_partition_query'])
 
     @patch('app.get_response_container')
+    def test_guest_totals_count_people_and_shared_responses_once(self, mock_get_container):
+        """Include unresolved households, but exclude declines and duplicate assignments."""
+        self.mock_tracking.return_value = (
+            [
+                {'id': 'shared-one', 'names': ['Taylor Smith']},
+                {'id': 'shared-two', 'names': ['Jordan Smith']},
+                {'id': 'declined', 'names': ['Alex Jones', 'Casey Jones']},
+                {'id': 'waiting', 'names': ['Morgan Lee', 'Riley Lee']},
+                {'id': 'review', 'names': ['Jamie Stone', 'Jesse Stone']},
+                {'id': 'missing', 'names': ['Quinn Brown']}
+            ],
+            [
+                {'household_id': 'shared-one', 'rsvp_ids': ['shared']},
+                {'household_id': 'shared-two', 'rsvp_ids': ['shared']},
+                {'household_id': 'missing', 'rsvp_ids': ['deleted']}
+            ]
+        )
+        mock_get_container.return_value.query_items.return_value = [
+            {'id': 'shared', 'party_names': 'Taylor Smith and Jordan Smith',
+             'attending': 'yes', 'party_size': 3, 'welcome_party': 'yes'},
+            {'id': 'decline', 'party_names': 'Alex Jones',
+             'attending': 'no', 'party_size': 99, 'welcome_party': ''},
+            {'id': 'suggestion', 'party_names': 'Jamey Stone',
+             'attending': 'yes', 'party_size': 1, 'welcome_party': 'no'},
+            {'id': 'unmatched', 'party_names': 'Unrelated Guest',
+             'attending': 'yes', 'party_size': 1, 'welcome_party': 'no'}
+        ]
+
+        response = self.client.get('/rsvp/admin', auth=self.auth)
+
+        self.assertEqual(response.status_code, 200)
+        soup = BeautifulSoup(response.data, 'html.parser')
+        summary = soup.select_one('[aria-label="Guest count totals"]')
+        for key, expected in (('attending', '5'), ('outstanding', '5'), ('potential', '10')):
+            self.assertEqual(
+                summary.select_one(f'[data-guest-total="{key}"]').get_text(strip=True),
+                expected
+            )
+        self.assertIn('Needs review', summary.get_text())
+        self.assertIn('overlap', summary.get_text())
+        self.assertIsNone(summary.find_parent(attrs={'data-filter-scope': True}))
+
+    @patch('app.get_response_container')
+    def test_guest_totals_with_all_households_responded(self, mock_get_container):
+        """A fully answered guest list has zero outstanding, including declined households."""
+        self.mock_tracking.return_value = (
+            [{'id': 'one', 'names': ['Taylor Smith', 'Jordan Smith']}], []
+        )
+        for attending, party_size in (('yes', 2), ('no', 0)):
+            with self.subTest(attending=attending):
+                mock_get_container.return_value.query_items.return_value = [{
+                    'id': 'response', 'party_names': 'Taylor Smith',
+                    'attending': attending, 'party_size': party_size, 'welcome_party': ''
+                }]
+                response = self.client.get('/rsvp/admin', auth=self.auth)
+                soup = BeautifulSoup(response.data, 'html.parser')
+                for key, expected in (
+                        ('attending', str(party_size)), ('outstanding', '0'),
+                        ('potential', str(party_size))):
+                    self.assertEqual(
+                        soup.select_one(f'[data-guest-total="{key}"]').get_text(strip=True),
+                        expected
+                    )
+
+    @patch('app.get_response_container')
+    def test_guest_totals_without_imported_guest_list(self, mock_get_container):
+        """Missing invitation data cannot be presented as zero outstanding guests."""
+        mock_get_container.return_value.query_items.return_value = []
+        response = self.client.get('/rsvp/admin', auth=self.auth)
+        soup = BeautifulSoup(response.data, 'html.parser')
+        self.assertEqual(soup.select_one('[data-guest-total="attending"]').get_text(strip=True), '0')
+        for key in ('outstanding', 'potential'):
+            self.assertEqual(
+                soup.select_one(f'[data-guest-total="{key}"]').get_text(strip=True),
+                'Unavailable'
+            )
+        self.assertIn('Import the guest list', soup.get_text())
+
+    @patch('app.get_response_container')
     def test_empty_overview(self, mock_get_container):
         """A genuinely empty response set is distinguished from a database failure."""
         mock_get_container.return_value.query_items.return_value = []
