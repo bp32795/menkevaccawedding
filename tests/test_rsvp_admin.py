@@ -154,6 +154,7 @@ class RSVPAdminTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         soup = BeautifulSoup(response.data, 'html.parser')
         summary = soup.select_one('[aria-label="Guest count totals"]')
+        self.assertEqual(summary.select_one('[data-invited-guests]').get_text(strip=True), '9')
         for key, expected in (('attending', '5'), ('outstanding', '5'), ('potential', '10')):
             self.assertEqual(
                 summary.select_one(f'[data-guest-total="{key}"]').get_text(strip=True),
@@ -177,6 +178,7 @@ class RSVPAdminTestCase(unittest.TestCase):
                 }]
                 response = self.client.get('/rsvp/admin', auth=self.auth)
                 soup = BeautifulSoup(response.data, 'html.parser')
+                self.assertEqual(soup.select_one('[data-invited-guests]').get_text(strip=True), '2')
                 for key, expected in (
                         ('attending', str(party_size)), ('outstanding', '0'),
                         ('potential', str(party_size))):
@@ -198,6 +200,7 @@ class RSVPAdminTestCase(unittest.TestCase):
                 'Unavailable'
             )
         self.assertIn('Import the guest list', soup.get_text())
+        self.assertIsNone(soup.select_one('[data-invited-guests]'))
 
     @patch('app.get_response_container')
     def test_empty_overview(self, mock_get_container):
@@ -328,6 +331,7 @@ class RSVPAdminTestCase(unittest.TestCase):
         self.assertEqual([cell.get_text(strip=True) for cell in row.find_all('td')][1:4],
                          ['No', '0', 'No'])
         self.assertIsNone(row.select_one('button[value="mark_no"]'))
+        self.assertEqual(soup.select_one('[data-invited-guests]').get_text(strip=True), '2')
         for key in ('attending', 'outstanding', 'potential'):
             self.assertEqual(soup.select_one(f'[data-guest-total="{key}"]').get_text(strip=True), '0')
         container.query_items.return_value = [{

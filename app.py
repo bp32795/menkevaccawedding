@@ -584,6 +584,7 @@ def rsvp_admin():
     attending_guests = sum(
         response['party_size'] for response in responses if response['attending'] == 'yes'
     )
+    invited_guests = sum(len(household['names']) for household in households) if households else None
     outstanding_guests = (
         sum(len(household['names']) for household in tracking['households']
             if household['status'] != 'Responded')
@@ -592,6 +593,7 @@ def rsvp_admin():
     return render_template(
         'rsvp_admin.html', responses=responses, tracking=tracking,
         attending_guests=attending_guests, outstanding_guests=outstanding_guests,
+        invited_guests=invited_guests,
         csrf_token=session['rsvp_admin_csrf']
     )
 

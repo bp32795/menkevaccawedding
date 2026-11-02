@@ -95,6 +95,9 @@ close the browser or private browsing session.
 
 At the top, **Confirmed attendees** sums the party sizes of all Yes RSVPs, including
 unmatched responses, without counting shared household assignments twice.
+It reads **[Yes count] out of [total invited]**, where total invited includes every
+person in the imported guest list, including guest-submitted and admin-marked declines.
+Without an imported guest list, only the Yes count is shown.
 **Outstanding guests** counts imported people in Not responded and Needs review
 households; declined households are excluded. **Potential guest count** adds confirmed
 attendees and outstanding guests to estimate attendance if everyone outstanding says yes.
